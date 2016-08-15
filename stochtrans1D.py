@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from numba import autojit
 
 class StochModel(object):
     """ The generic class from which all the models I consider derive """
@@ -99,11 +100,12 @@ class StochSaddleNode(StochModel):
         plt.ylabel('$x(t)$')
         plt.show()
 
-    def escape_time(self,x0,t0,A,**kwargs):
+    @autojit        
+    def escape_time(self,x0,t0,A,dt):
         """ Computes the escape time, defined by inf{t>t0 | x(t)>A}, for one realization """
         x = x0
         t = t0
-        dt = kwargs.get('dt',0.1)
+        #dt = kwargs.get('dt',0.1)
         while (x <= A):
             x += self.F(x,t) * dt + np.sqrt(2*self.D0*dt)*np.random.normal(0.0,1.0)
             t += dt
