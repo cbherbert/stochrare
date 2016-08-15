@@ -111,6 +111,15 @@ class StochSaddleNode(StochModel):
             t += dt
         return t
 
+    @autojit
+    def escapetime_pdf(self,x0,t0,A,ntraj):
+        samples = np.zeros(ntraj)
+        for k in xrange(ntraj):
+            samples[k] = self.escape_time(x0,t0,A,0.1)
+        hist, rc = np.histogram(samples,bins='doane',density=True)
+        rc = rc[:-1] + 0.5*(rc[1]-rc[0])
+        return rc, hist
+    
     def escape_time_plotpdf(self,x0,t0,A,ntraj):
         samples = [self.escape_time(x0,t0,A) for k in xrange(ntraj)]
         fig = plt.figure()
