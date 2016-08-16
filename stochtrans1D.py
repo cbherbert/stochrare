@@ -80,7 +80,7 @@ class StochSaddleNode(StochModel):
 
     def __init__(self,Damp):
         super(self.__class__,self).__init__(lambda x,t: x**2+t,Damp)
-
+        
     def trajectoryplot(self,*args,**kwargs):
         """ Plot previously computed trajectories """
         for t,x in args:
@@ -109,6 +109,14 @@ class StochSaddleNode(StochModel):
             t += dt
         return t
 
+    def escapetime_pdf(self,x0,t0,A,ntraj,**kwargs):
+        samples = np.zeros(ntraj) # this is faster than list comprehension
+        for k in xrange(ntraj):
+            samples[k] = self.escape_time(x0,t0,A,**kwargs)
+        hist, rc = np.histogram(samples,bins='doane',density=True)
+        rc = rc[:-1] + 0.5*(rc[1]-rc[0])
+        return rc, hist
+    
     def escape_time_plotpdf(self,x0,t0,A,ntraj):
         samples = [self.escape_time(x0,t0,A) for k in xrange(ntraj)]
         fig = plt.figure()
