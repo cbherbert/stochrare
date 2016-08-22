@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from numba import autojit
+from numba import float32,vectorize
 
 class StochModel(object):
     """ The generic class from which all the models I consider derive """
@@ -10,10 +10,10 @@ class StochModel(object):
         self.D0 = Damp
 
     def trajectory(self,x0,t0,**kwargs):
-        """ Integrate a trajectory with given initial condition (t0,x0), with time step dt, for niter iterations """
+        """ Integrate a trajectory with given initial condition (t0,x0) """
         x      = [x0]
-        dt     = kwargs.get('dt',0.1)
-        time   = kwargs.get('T',10)
+        dt     = kwargs.get('dt',0.1) # Time step
+        time   = kwargs.get('T',10)   # Total integration time
         tarray = np.linspace(t0,t0+time,num=time/dt+1)
         for t in tarray[1:]:    
             x += [ x[-1] + self.F(x[-1],t) * dt + np.sqrt(2*self.D0*dt)*np.random.normal(0.0,1.0)]
@@ -100,35 +100,47 @@ class StochSaddleNode(StochModel):
         plt.ylabel('$x(t)$')
         plt.show()
 
-    @autojit        
-    def escape_time(self,x0,t0,A,dt):
-        """ Computes the escape time, defined by inf{t>t0 | x(t)>A}, for one realization """
-        x = x0
-        t = t0
-        #dt = kwargs.get('dt',0.1)
-        while (x <= A):
-            x += self.F(x,t) * dt + np.sqrt(2*self.D0*dt)*np.random.normal(0.0,1.0)
-            t += dt
-        return t
-
-    @autojit
-    def escapetime_pdf(self,x0,t0,A,ntraj):
-        samples = np.zeros(ntraj)
-        for k in xrange(ntraj):
-            samples[k] = self.escape_time(x0,t0,A,0.1)
+    def escapetime_sample(self,x0,t0,A,**kwargs):
+        """ This is a wrapper to the compiled vec_escape_time function """
+        dt      = kwargs.get('dt',0.1)
+        ntraj   = kwargs.get('ntraj',100000)
+        dtype   = kwargs.get('dtype',np.float32)
+        return vec_escape_time(
+            np.full(ntraj,x0,dtype=dtype),
+            np.full(ntraj,t0,dtype=dtype),
+            np.full(ntraj,A,dtype=dtype),
+            np.full(ntraj,dt,dtype=dtype),
+            np.full(ntraj,self.D0,dtype=dtype))    
+    
+    def escapetime_pdf(self,x0,t0,A,**kwargs):
+        """ Compute the probability distribution function of the escape time with given initial conditions (t0,x0) and a given threshold A """
+        samples = self.escapetime_sample(x0,t0,A,**kwargs)
         hist, rc = np.histogram(samples,bins='doane',density=True)
         rc = rc[:-1] + 0.5*(rc[1]-rc[0])
         return rc, hist
     
-    def escape_time_plotpdf(self,x0,t0,A,ntraj):
-        samples = [self.escape_time(x0,t0,A) for k in xrange(ntraj)]
+    def escapetime_pdf_plot(self,x0,t0,A,**kwargs):        
         fig = plt.figure()
         ax = plt.axes()
-        ax.set_xlabel('$t_0$')
-        ax.set_ylabel('$p(t_0)$')
+        ax.set_xlabel('$t_\star$')
+        ax.set_ylabel('$p(t_\star)$')
         plt.grid()
-        hist, rc = np.histogram(samples,bins='doane',density=True)
-        rc = rc[:-1] + 0.5*(rc[1]-rc[0])
-        pdf_line, = ax.plot(rc,hist,linewidth=2)
+        pdf_line, = ax.plot(*self.escapetime_pdf(x0,t0,A,**kwargs),linewidth=2)
         plt.show()
+        
+###
+#
+#  Compiled code using numba for better performance
+#
+###
+
+@vectorize(['float32(float32,float32,float32,float32,float32)','float64(float64,float64,float64,float64,float64)'],target='parallel')
+def vec_escape_time(x0,t0,A,dt,D0):
+    """ Computes the escape time, defined by inf{t>t0 | x(t)>A}, for one realization """
+    x = x0
+    t = t0
+    while (x <= A):
+        x += (x**2+t) * dt + np.sqrt(2*D0*dt)*np.random.normal(0.0,1.0)
+        t += dt
+    return t
         
