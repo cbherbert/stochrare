@@ -115,7 +115,10 @@ class StochSaddleNode(StochModel):
     def escapetime_pdf(self,x0,t0,A,**kwargs):
         """ Compute the probability distribution function of the escape time with given initial conditions (t0,x0) and a given threshold A """
         samples = self.escapetime_sample(x0,t0,A,**kwargs)
-        hist, rc = np.histogram(samples,bins='doane',density=True)
+        if (kwargs.get('standardize',False)):
+            samples -= np.mean(samples)
+            samples /= np.std(samples)
+        hist, rc = np.histogram(samples,bins=kwargs.get('bins','doane'),density=True)
         rc = rc[:-1] + 0.5*(rc[1]-rc[0])
         return rc, hist
     
