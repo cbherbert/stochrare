@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from numba import float32,vectorize
+from numba import float32,float64,vectorize
 
 class StochModel(object):
     """ The generic class from which all the models I consider derive """
@@ -17,9 +17,37 @@ class StochModel(object):
         tarray = np.linspace(t0,t0+time,num=time/dt+1)
         for t in tarray[1:]:    
             x += [ x[-1] + self.F(x[-1],t) * dt + np.sqrt(2*self.D0*dt)*np.random.normal(0.0,1.0)]
-        return tarray,np.array(x)
+        x = np.array(x)
+        if kwargs.get('finite',False):            
+            tarray = tarray[np.isfinite(x)]
+            x = x[np.isfinite(x)]
+        return tarray,x
 
+    def trajectoryplot(self,*args,**kwargs):        
+        """ Plot previously computed trajectories """
+        fig = plt.figure()
+        ax  = plt.axes()
+        for t,x in args:
+            ax.plot(t,x)        
+        
+        ax.grid()
+        ax.set_ylim(kwargs.get('ylim',(-10.0,10.0)))
+        ax.set_xlim(kwargs.get('xlim',ax.get_xlim()))
+        ax.set_xlabel('$t$')
+        ax.set_ylabel('$x(t)$')
 
+        self._trajectoryplot_decorate(*args,axis=ax,**kwargs)
+        plt.show()
+
+    def _trajectoryplot_decorate(self,*args,**kwargs):
+        pass
+
+    def blowuptime(self,x0,t0,**kwargs):
+        """ Compute the last time with finite values, for one realization"""
+        t,x = self.trajectory(x0,t0,**kwargs)
+        return t[np.isfinite(x)][-1]
+    
+    
 class DoubleWell(StochModel):
     """ Double well potential model, possibly including periodic forcing and noise """
 
@@ -78,27 +106,17 @@ class DoubleWell(StochModel):
         
 
 class StochSaddleNode(StochModel):
-
+    
     def __init__(self,Damp):
         super(self.__class__,self).__init__(lambda x,t: x**2+t,Damp)
         
-    def trajectoryplot(self,*args,**kwargs):
-        """ Plot previously computed trajectories """
-        for t,x in args:
-            plt.plot(t,x)
-
-        # Plot the fixed point trajectories
+    def _trajectoryplot_decorate(self,*args,**kwargs):
+        """ Plot the fixed point trajectories """
         tmin = min([min(t) for t,x in args])
-        time = np.linspace(tmin,0)
-        plt.plot(time,-np.sqrt(abs(time)),color='black')
-        plt.plot(time,np.sqrt(abs(time)),linestyle='dashed',color='black')
+        time = np.linspace(tmin,0,num=max(50,5*np.floor(abs(tmin))))
+        plt.plot(time,-np.sqrt(np.abs(time)),color='black')
+        plt.plot(time,np.sqrt(np.abs(time)),linestyle='dashed',color='black')
 
-        plt.grid()
-        #plt.xlim([tmin,tmax])
-        plt.ylim([-10.0,10.0])
-        plt.xlabel('$t$')
-        plt.ylabel('$x(t)$')
-        plt.show()
 
     def escapetime(self,x0,t0,A,**kwargs):
         """ Computes the escape time, defined by inf{t>t0 | x(t)>A}, for one realization """
@@ -140,6 +158,7 @@ class StochSaddleNode(StochModel):
         plt.grid()
         pdf_line, = ax.plot(*self.escapetime_pdf(x0,t0,A,**kwargs),linewidth=2)
         plt.show()
+
         
 ###
 #
