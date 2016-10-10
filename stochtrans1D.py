@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from numba import float32,float64,vectorize
+from numba import float32,float64,vectorize,autojit,jit
 
 class StochModel(object):
     """ The generic class from which all the models I consider derive """
@@ -9,11 +9,16 @@ class StochModel(object):
         self.F  = vecfield 
         self.D0 = Damp
 
+    def time_reversal(self):
+        """ Apply time reversal and return the new model """
+        return StochModel_T(lambda x,t: -self.F(x,-t),self.D0)
+        
     def trajectory(self,x0,t0,**kwargs):
         """ Integrate a trajectory with given initial condition (t0,x0) """
         x      = [x0]
         dt     = kwargs.get('dt',0.1) # Time step
         time   = kwargs.get('T',10)   # Total integration time
+        if dt < 0: time=-time
         tarray = np.linspace(t0,t0+time,num=time/dt+1)
         for t in tarray[1:]:    
             x += [ x[-1] + self.F(x[-1],t) * dt + np.sqrt(2*self.D0*dt)*np.random.normal(0.0,1.0)]
@@ -106,6 +111,7 @@ class DoubleWell(StochModel):
         
 
 class StochSaddleNode(StochModel):
+    default_dt = 0.01
     
     def __init__(self,Damp):
         super(self.__class__,self).__init__(lambda x,t: x**2+t,Damp)
@@ -117,12 +123,24 @@ class StochSaddleNode(StochModel):
         plt.plot(time,-np.sqrt(np.abs(time)),color='black')
         plt.plot(time,np.sqrt(np.abs(time)),linestyle='dashed',color='black')
 
+    def trajectory(self,x0,t0,**kwargs):
+        """ This is a wrapper to the compiled saddlenode_trajectory function """
+        dt   = kwargs.get('dt',self.default_dt) # Time step
+        time = kwargs.get('T',10)   # Total integration time
+        if dt < 0: time=-time
+        t = np.linspace(t0,t0+time,num=time/dt+1,dtype=np.float32)
+        x = saddlenode_trajectory(x0,dt,self.D0,t[1:])
+        if kwargs.get('finite',False):            
+            t = t[np.isfinite(x)]
+            x = x[np.isfinite(x)]
+        return t,x
+
 
     def escapetime(self,x0,t0,A,**kwargs):
         """ Computes the escape time, defined by inf{t>t0 | x(t)>A}, for one realization """
         x = x0
         t = t0
-        dt = kwargs.get('dt',0.1)
+        dt = kwargs.get('dt',self.default_dt)
         while (x <= A):
             x += self.F(x,t) * dt + np.sqrt(2*self.D0*dt)*np.random.normal(0.0,1.0)
             t += dt
@@ -130,7 +148,7 @@ class StochSaddleNode(StochModel):
     
     def escapetime_sample(self,x0,t0,A,**kwargs):
         """ This is a wrapper to the compiled vec_escape_time function """
-        dt      = kwargs.get('dt',0.1)
+        dt      = kwargs.get('dt',self.default_dt)
         ntraj   = kwargs.get('ntraj',100000)
         dtype   = kwargs.get('dtype',np.float32)
         return vec_escape_time(
@@ -176,3 +194,18 @@ def vec_escape_time(x0,t0,A,dt,D0):
         t += dt
     return t
         
+
+@jit("float32[:](float32,float32,float32,float32[:])",target='cpu',nopython=True)
+def saddlenode_trajectory(x0,dt,D0,tarr):
+    """ Integrate a trajectory with given initial condition (t0,x0) """
+    x = [x0]
+    for t in tarr:
+        x += [ x[-1] + (x[-1]**2+t) * dt + np.sqrt(2*D0*dt)*np.random.normal(0.0,1.0)]
+    return np.array(x,dtype=np.float32)
+                                    
+
+class StochModel_T(StochModel):
+    """ Time reversal of a given model """
+    def trajectory(self,x0,t0,**kwargs):
+        t,x = super(self.__class__,self).trajectory(x0,t0,**kwargs)
+        return 2*t[0]-t,x
