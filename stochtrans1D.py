@@ -28,7 +28,8 @@ class StochModel(object):
             x = x[np.isfinite(x)]
         return tarray,x
 
-    def trajectoryplot(self,*args,**kwargs):        
+    @classmethod
+    def trajectoryplot(cls,*args,**kwargs):        
         """ Plot previously computed trajectories """
         fig = plt.figure()
         ax  = plt.axes()
@@ -41,10 +42,11 @@ class StochModel(object):
         ax.set_xlabel('$t$')
         ax.set_ylabel('$x(t)$')
 
-        self._trajectoryplot_decorate(*args,axis=ax,**kwargs)
+        cls._trajectoryplot_decorate(*args,axis=ax,**kwargs)
         plt.show()
 
-    def _trajectoryplot_decorate(self,*args,**kwargs):
+    @classmethod
+    def _trajectoryplot_decorate(cls,*args,**kwargs):
         pass
 
     def blowuptime(self,x0,t0,**kwargs):
@@ -115,8 +117,9 @@ class StochSaddleNode(StochModel):
     
     def __init__(self,Damp):
         super(self.__class__,self).__init__(lambda x,t: x**2+t,Damp)
-        
-    def _trajectoryplot_decorate(self,*args,**kwargs):
+
+    @classmethod
+    def _trajectoryplot_decorate(cls,*args,**kwargs):
         """ Plot the fixed point trajectories """
         tmin = min([min(t) for t,x in args])
         time = np.linspace(tmin,0,num=max(50,5*np.floor(abs(tmin))))
