@@ -128,7 +128,10 @@ class StochSaddleNode(StochModel):
 
     def trajectory(self,x0,t0,**kwargs):
         """ This is a wrapper to the compiled saddlenode_trajectory function """
-        dt   = kwargs.get('dt',self.default_dt) # Time step
+        dt = kwargs.get('dt',self.default_dt) # Time step
+        if dt == 'adapt':
+            dt = min(self.default_dt,0.1/np.sqrt(np.abs(t0)))
+            
         time = kwargs.get('T',10)   # Total integration time
         if dt < 0: time=-time
         t = np.linspace(t0,t0+time,num=time/dt+1,dtype=np.float32)
