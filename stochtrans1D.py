@@ -127,15 +127,15 @@ class StochSaddleNode(StochModel):
         plt.plot(time,np.sqrt(np.abs(time)),linestyle='dashed',color='black')
 
     def trajectory(self,x0,t0,**kwargs):
-        """ This is a wrapper to the compiled saddlenode_trajectory function """
-        dt = kwargs.get('dt',self.default_dt) # Time step
-        if dt == 'adapt':
-            dt = min(self.default_dt,0.1/np.sqrt(np.abs(t0)))
-            
+        """ This is a wrapper to the compiled saddlenode_trajectory function """        
         time = kwargs.get('T',10)   # Total integration time
-        if dt < 0: time=-time
-        t = np.linspace(t0,t0+time,num=time/dt+1,dtype=np.float32)
-        x = saddlenode_trajectory(x0,dt,self.D0,t[1:])
+        dt   = kwargs.get('dt',self.default_dt) # Time step                            
+        if dt == 'adapt':            
+            t,x = saddlenode_trajectory_adapt(x0,self.D0,t0,time,self.default_dt)
+        else:
+            if dt < 0: time = -time
+            t = np.linspace(t0,t0+time,num=time/dt+1,dtype=np.float32)
+            x = saddlenode_trajectory(x0,dt,self.D0,t[1:])
         if kwargs.get('finite',False):            
             t = t[np.isfinite(x)]
             x = x[np.isfinite(x)]
@@ -157,7 +157,12 @@ class StochSaddleNode(StochModel):
         dt      = kwargs.get('dt',self.default_dt)
         ntraj   = kwargs.get('ntraj',100000)
         dtype   = kwargs.get('dtype',np.float32)
-        return vec_escape_time(
+        if dt == 'adapt':
+            fun = vec_escape_time_adapt
+            dt  = self.default_dt
+        else:
+            fun = vec_escape_time
+        return fun(
             np.full(ntraj,x0,dtype=dtype),
             np.full(ntraj,t0,dtype=dtype),
             np.full(ntraj,A,dtype=dtype),
@@ -199,7 +204,18 @@ def vec_escape_time(x0,t0,A,dt,D0):
         x += (x**2+t) * dt + np.sqrt(2*D0*dt)*np.random.normal(0.0,1.0)
         t += dt
     return t
-        
+
+@vectorize(['float32(float32,float32,float32,float32,float32)','float64(float64,float64,float64,float64,float64)'],target='parallel')
+def vec_escape_time_adapt(x0,t0,A,dtmax,D0):
+    """ Computes the escape time, defined by inf{t>t0 | x(t)>A}, for one realization, with adaptive timestep """
+    x = x0
+    t = t0
+    while (x <= A):
+        dt = min(dtmax,0.1/np.sqrt(np.abs(t)))
+        x += (x**2+t) * dt + np.sqrt(2*D0*dt)*np.random.normal(0.0,1.0)
+        t += dt
+    return t
+
 
 @jit("float32[:](float32,float32,float32,float32[:])",target='cpu',nopython=True)
 def saddlenode_trajectory(x0,dt,D0,tarr):
@@ -208,10 +224,21 @@ def saddlenode_trajectory(x0,dt,D0,tarr):
     for t in tarr:
         x += [ x[-1] + (x[-1]**2+t) * dt + np.sqrt(2*D0*dt)*np.random.normal(0.0,1.0)]
     return np.array(x,dtype=np.float32)
-                                    
 
+@jit("float32[:,:](float32,float32,float32,float32,float32)",target='cpu',nopython=True)
+def saddlenode_trajectory_adapt(x0,D0,t0,T,dtmax):
+    """ Integrate a trajectory with given initial condition (t0,x0) and adaptive timestep """
+    x = [x0]
+    t = [t0]    
+    while t[-1] < t0+T:
+        dt = min(dtmax,0.1/np.sqrt(np.abs(t[-1])))        
+        x += [ x[-1] + (x[-1]**2+t[-1]) * dt + np.sqrt(2*D0*dt)*np.random.normal(0.0,1.0)]
+        t += [ t[-1] + dt ]
+    return np.array((t,x),dtype=np.float32)
+    
 class StochModel_T(StochModel):
     """ Time reversal of a given model """
     def trajectory(self,x0,t0,**kwargs):
         t,x = super(self.__class__,self).trajectory(x0,t0,**kwargs)
         return 2*t[0]-t,x
+
