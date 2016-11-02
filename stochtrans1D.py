@@ -33,17 +33,25 @@ class StochModel(object):
         """ Plot previously computed trajectories """
         fig = plt.figure()
         ax  = plt.axes()
+        lines = []
         for t,x in args:
-            ax.plot(t,x)        
+            lines += ax.plot(t,x)        
         
         ax.grid()
         ax.set_ylim(kwargs.get('ylim',(-10.0,10.0)))
         ax.set_xlim(kwargs.get('xlim',ax.get_xlim()))
         ax.set_xlabel('$t$')
         ax.set_ylabel('$x(t)$')
+        plottitle = kwargs.get('title',"")
+        if plottitle != "":
+            plt.title(plottitle)
 
+        labels = kwargs.get('labels',[])
+        if labels != []:
+            plt.legend(lines,labels,bbox_to_anchor=(1.05, 1),loc=2, borderaxespad=0.)
+        
         cls._trajectoryplot_decorate(*args,axis=ax,**kwargs)
-        plt.show()
+        plt.show()        
 
     @classmethod
     def _trajectoryplot_decorate(cls,*args,**kwargs):
@@ -130,11 +138,12 @@ class StochSaddleNode(StochModel):
         """ This is a wrapper to the compiled saddlenode_trajectory function """        
         time = kwargs.get('T',10)   # Total integration time
         dt   = kwargs.get('dt',self.default_dt) # Time step                            
-        if dt == 'adapt':            
+        if dt == 'adapt':
             t,x = saddlenode_trajectory_adapt(x0,self.D0,t0,time,self.default_dt)
         else:
+            if dt == 'auto': dt = min(self.default_dt,0.1/np.sqrt(np.abs(t0)))
             if dt < 0: time = -time
-            t = np.linspace(t0,t0+time,num=time/dt+1,dtype=np.float32)
+            t = np.linspace(t0,t0+time,num=time/dt+1)
             x = saddlenode_trajectory(x0,dt,self.D0,t[1:])
         if kwargs.get('finite',False):            
             t = t[np.isfinite(x)]
@@ -161,6 +170,7 @@ class StochSaddleNode(StochModel):
             fun = vec_escape_time_adapt
             dt  = self.default_dt
         else:
+            if dt == 'auto': dt = min(self.default_dt,0.1/np.sqrt(np.abs(t0)))
             fun = vec_escape_time
         return fun(
             np.full(ntraj,x0,dtype=dtype),
@@ -168,6 +178,10 @@ class StochSaddleNode(StochModel):
             np.full(ntraj,A,dtype=dtype),
             np.full(ntraj,dt,dtype=dtype),
             np.full(ntraj,self.D0,dtype=dtype))    
+
+    def escapetime_avg(self,x0,t0,A,**kwargs):
+        """ Compute the average escape time for given initial condition (x0,t0) and threshold A """
+        return np.mean(self.escapetime_sample(x0,t0,A,**kwargs))
     
     def escapetime_pdf(self,x0,t0,A,**kwargs):
         """ Compute the probability distribution function of the escape time with given initial conditions (t0,x0) and a given threshold A """
@@ -217,25 +231,28 @@ def vec_escape_time_adapt(x0,t0,A,dtmax,D0):
     return t
 
 
-@jit("float32[:](float32,float32,float32,float32[:])",target='cpu',nopython=True)
+@jit(["float32[:](float32,float32,float32,float32[:])","float64[:](float64,float64,float64,float64[:])"],target='cpu',nopython=True)
 def saddlenode_trajectory(x0,dt,D0,tarr):
     """ Integrate a trajectory with given initial condition (t0,x0) """
     x = [x0]
     for t in tarr:
         x += [ x[-1] + (x[-1]**2+t) * dt + np.sqrt(2*D0*dt)*np.random.normal(0.0,1.0)]
-    return np.array(x,dtype=np.float32)
+    return np.array(x)
 
-@jit("float32[:,:](float32,float32,float32,float32,float32)",target='cpu',nopython=True)
+
+@jit(["float32[:,:](float32,float32,float32,float32,float32)","float64[:,:](float64,float64,float64,float64,float64)"],target='cpu',nopython=True)
 def saddlenode_trajectory_adapt(x0,D0,t0,T,dtmax):
     """ Integrate a trajectory with given initial condition (t0,x0) and adaptive timestep """
     x = [x0]
-    t = [t0]    
-    while t[-1] < t0+T:
-        dt = min(dtmax,0.1/np.sqrt(np.abs(t[-1])))        
+    t = [t0]
+    while t[-1] < t0+T:    
+        dt = min(dtmax,0.1/np.sqrt(np.abs(t[-1])))
         x += [ x[-1] + (x[-1]**2+t[-1]) * dt + np.sqrt(2*D0*dt)*np.random.normal(0.0,1.0)]
-        t += [ t[-1] + dt ]
-    return np.array((t,x),dtype=np.float32)
-    
+        t += [ t[-1] + dt ]        
+    return np.array((t,x))
+
+
+
 class StochModel_T(StochModel):
     """ Time reversal of a given model """
     def trajectory(self,x0,t0,**kwargs):
