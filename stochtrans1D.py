@@ -3,7 +3,8 @@ import matplotlib.pyplot as plt
 from numba import float32,float64,vectorize,autojit,jit
 
 class StochModel(object):
-    """ The generic class from which all the models I consider derive """
+    """ The generic class from which all the models I consider derive.
+        It corresponds to the family of 1D SDEs dx_t = F(x_t,t)dt + sqrt(2*D0)dW_t """
     def __init__(self,vecfield,Damp):
         """ vecfield is a function of two variables (x,t) and Damp the amplitude of the diffusion term (noise) """
         self.F  = vecfield 
@@ -61,7 +62,44 @@ class StochModel(object):
         """ Compute the last time with finite values, for one realization"""
         t,x = self.trajectory(x0,t0,**kwargs)
         return t[np.isfinite(x)][-1]
+
+    def fpintegrate(self,t0,T,B,A,Np,dt,**kwargs):
+        """ Numerical integration of the associated Fokker-Planck equation """
+        
+        fdgrid = RegularCenteredFD(B,A,Np)    
     
+        # initial P(x)    
+        P = kwargs.get('P',np.exp(-0.5*(fdgrid.grid+np.sqrt(np.abs(t0)))**2)/np.sqrt(2*np.pi))    
+
+        # time integration
+        t = t0
+        while (t < t0+T):
+            # Advancing in the bulk:
+            deltaP = fdgrid.laplacian(P)
+            drift = fdgrid.grad(self.F(fdgrid.grid,t)*P)
+            P[1:-1] += (-drift + self.D0*deltaP)*dt
+
+            # Absorbing BC at x=A:
+            P[-1] = 0
+            # # Reflecting BC at x=B:
+            # P[0] = P[1]/(1+self.F(fdgrid.grid[0],t)*fdgrid.dx/self.D0)
+            P[0] = 0
+    
+            t += dt
+
+        return t,P
+    
+class Wiener(StochModel):
+    """ The Wiener process """
+    def __init__(self):
+        super(self.__class__,self).__init__(lambda x,t: 0, 1)
+
+
+class OrnsteinUhlenbeck(StochModel):
+    """ The Ornstein-Uhlenbeck model """
+    def __init__(self,mu,theta,D):
+        super(self.__class__,self).__init__(lambda x,t: theta*(mu-x),D)
+        
     
 class DoubleWell(StochModel):
     """ Double well potential model, possibly including periodic forcing and noise """
@@ -201,6 +239,32 @@ class StochSaddleNode(StochModel):
         plt.grid()
         pdf_line, = ax.plot(*self.escapetime_pdf(x0,t0,A,**kwargs),linewidth=2)
         plt.show()
+
+
+    def fpintegrate(self,t0,T,B,A,Np,dt,**kwargs):
+        """ Numerical integration of the associated Fokker-Planck equation """
+        
+        fdgrid = RegularCenteredFD(B,A,Np)    
+    
+        # initial P(x)    
+        P = kwargs.get('P',np.exp(-0.5*(fdgrid.grid+np.sqrt(np.abs(t0)))**2)/np.sqrt(2*np.pi))    
+
+        # time integration
+        t = t0
+        while (t < t0+T):
+            # Advancing in the bulk:
+            deltaP = fdgrid.laplacian(P)
+            drift = fdgrid.grad(self.F(fdgrid.grid,t)*P)
+            P[1:-1] += (-drift + self.D0*deltaP)*dt
+
+            # Absorbing BC at x=A:
+            P[-1] = 0
+            # Reflecting BC at x=B:
+            P[0] = P[1]/(1+self.F(fdgrid.grid[0],t)*fdgrid.dx/self.D0)
+    
+            t += dt
+
+        return t,P
 
         
 ###
