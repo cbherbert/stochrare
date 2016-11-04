@@ -63,31 +63,16 @@ class StochModel(object):
         t,x = self.trajectory(x0,t0,**kwargs)
         return t[np.isfinite(x)][-1]
 
+    def _fpeq(self,P,X,t):
+        """ Right hand side of the Fokker-Planck equation associated to the stochastic process """
+        return -X.grad(self.F(X.grid,t)*P) + self.D0*X.laplacian(P)
+    
     def fpintegrate(self,t0,T,B,A,Np,dt,**kwargs):
-        """ Numerical integration of the associated Fokker-Planck equation """
-        
-        fdgrid = RegularCenteredFD(B,A,Np)    
-    
-        # initial P(x)    
-        P = kwargs.get('P',np.exp(-0.5*(fdgrid.grid+np.sqrt(np.abs(t0)))**2)/np.sqrt(2*np.pi))    
+        """ Numerical integration of the associated Fokker-Planck equation """        
+        fdgrid = RegularCenteredFD(B,A,Np)                
+        P = kwargs.get('P',np.exp(-0.5*(fdgrid.grid+np.sqrt(np.abs(t0)))**2)/np.sqrt(2*np.pi)) # initial P(x)
+        return EDPSolver().edp_int(self._fpeq,fdgrid,P,t0,T,dt,DirichletBC([0,0]))
 
-        # time integration
-        t = t0
-        while (t < t0+T):
-            # Advancing in the bulk:
-            deltaP = fdgrid.laplacian(P)
-            drift = fdgrid.grad(self.F(fdgrid.grid,t)*P)
-            P[1:-1] += (-drift + self.D0*deltaP)*dt
-
-            # Absorbing BC at x=A:
-            P[-1] = 0
-            # # Reflecting BC at x=B:
-            # P[0] = P[1]/(1+self.F(fdgrid.grid[0],t)*fdgrid.dx/self.D0)
-            P[0] = 0
-    
-            t += dt
-
-        return t,P
     
 class Wiener(StochModel):
     """ The Wiener process """
@@ -242,29 +227,15 @@ class StochSaddleNode(StochModel):
 
 
     def fpintegrate(self,t0,T,B,A,Np,dt,**kwargs):
-        """ Numerical integration of the associated Fokker-Planck equation """
-        
-        fdgrid = RegularCenteredFD(B,A,Np)    
-    
-        # initial P(x)    
-        P = kwargs.get('P',np.exp(-0.5*(fdgrid.grid+np.sqrt(np.abs(t0)))**2)/np.sqrt(2*np.pi))    
+        """ Numerical integration of the associated Fokker-Planck equation """        
+        fdgrid = RegularCenteredFD(B,A,Np)
+        # initial P(x) centered on the stable state:
+        P = kwargs.get('P',np.exp(-0.5*(fdgrid.grid+np.sqrt(np.abs(t0)))**2)/np.sqrt(2*np.pi))
+        # boundary conditions - reflecting on the left, absorbing on the right:
+        dx = fdgrid.dx
+        bc = BoundaryCondition(lambda Y,X,t: [Y[1]/(1+self.F(X[0],t)*dx/self.D0),0])
+        return EDPSolver().edp_int(self._fpeq,fdgrid,P,t0,T,dt,bc)
 
-        # time integration
-        t = t0
-        while (t < t0+T):
-            # Advancing in the bulk:
-            deltaP = fdgrid.laplacian(P)
-            drift = fdgrid.grad(self.F(fdgrid.grid,t)*P)
-            P[1:-1] += (-drift + self.D0*deltaP)*dt
-
-            # Absorbing BC at x=A:
-            P[-1] = 0
-            # Reflecting BC at x=B:
-            P[0] = P[1]/(1+self.F(fdgrid.grid[0],t)*fdgrid.dx/self.D0)
-    
-            t += dt
-
-        return t,P
 
         
 ###
