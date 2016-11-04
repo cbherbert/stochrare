@@ -73,6 +73,31 @@ class StochModel(object):
         P = kwargs.get('P',np.exp(-0.5*(fdgrid.grid+np.sqrt(np.abs(t0)))**2)/np.sqrt(2*np.pi)) # initial P(x)
         return EDPSolver().edp_int(self._fpeq,fdgrid,P,t0,T,dt,DirichletBC([0,0]))
 
+    def pdfplot(self,*args,**kwargs):
+        """ Plot the pdf P(x,t) at various times """
+        fig = plt.figure()
+        ax = plt.axes()
+
+        B,M = kwargs.get('bounds',(-10.0,10.0))
+        Np  = kwargs.get('npts',100)
+        dt  = kwargs.get('dt',0.5*(np.abs(B-M)/(Np-1))**2)
+        X = np.linspace(B,M,num=Np)
+        P = kwargs.get('P0',np.exp(-0.5*X**2)/np.sqrt(2*np.pi))            
+
+        t0 = args[0]
+        ax.plot(X,P,label='t='+str(t0))
+        for t in args[1:]:
+            t,P = self.fpintegrate(t0,t-t0,B,M,Np,dt,P=P)
+            ax.plot(X,P,label='t='+str(t))
+            t0 = t
+
+        ax.grid()
+        ax.set_xlabel('$x$')
+        ax.set_ylabel('$P(x,t)$')
+        #plt.legend(bbox_to_anchor=(1.05, 1),loc=2, borderaxespad=0.)
+        plt.legend()
+        plt.show()
+
     
 class Wiener(StochModel):
     """ The Wiener process """
