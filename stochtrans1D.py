@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from numba import float32,float64,vectorize,autojit,jit
+import scipy.integrate as integrate
+from scipy.interpolate import interp1d
 
 class StochModel(object):
     """ The generic class from which all the models I consider derive.
@@ -10,6 +12,13 @@ class StochModel(object):
         self.F  = vecfield 
         self.D0 = Damp
 
+    def potential(self,X,t):
+        """ Integrate the vector field to obtain the value of the underlying potential at the input points. 
+        Caveat: This works only because we restrict ourselves to 1D models. """
+        fun = interp1d(X,-self.F(X,t))
+        return np.array([integrate.quad(fun,0.0,x)[0] for x in X])
+
+        
     def time_reversal(self):
         """ Apply time reversal and return the new model """
         return StochModel_T(lambda x,t: -self.F(x,-t),self.D0)
@@ -70,32 +79,38 @@ class StochModel(object):
     def fpintegrate(self,t0,T,B,A,Np,dt,**kwargs):
         """ Numerical integration of the associated Fokker-Planck equation """        
         fdgrid = RegularCenteredFD(B,A,Np)                
-        P = kwargs.get('P',np.exp(-0.5*(fdgrid.grid+np.sqrt(np.abs(t0)))**2)/np.sqrt(2*np.pi)) # initial P(x)
-        return EDPSolver().edp_int(self._fpeq,fdgrid,P,t0,T,dt,DirichletBC([0,0]))
+        P0 = kwargs.get('P0',np.exp(-0.5*(fdgrid.grid)**2)/np.sqrt(2*np.pi)) # initial P(x)
+        bc = kwargs.get('bc',DirichletBC([0,0]))
+        return EDPSolver().edp_int(self._fpeq,fdgrid,P0,t0,T,dt,bc)
 
     def pdfplot(self,*args,**kwargs):
         """ Plot the pdf P(x,t) at various times """
         fig = plt.figure()
         ax = plt.axes()
 
+        t0  = kwargs.get('t0',args[0])
         B,M = kwargs.get('bounds',(-10.0,10.0))
         Np  = kwargs.get('npts',100)
         dt  = kwargs.get('dt',0.5*(np.abs(B-M)/(Np-1))**2)
         X = np.linspace(B,M,num=Np)
         P = kwargs.get('P0',np.exp(-0.5*X**2)/np.sqrt(2*np.pi))            
 
-        t0 = args[0]
-        ax.plot(X,P,label='t='+str(t0))
-        for t in args[1:]:
-            t,P = self.fpintegrate(t0,t-t0,B,M,Np,dt,P=P)
-            ax.plot(X,P,label='t='+str(t))
+        if kwargs.get('potential',False):
+            ax2 = ax.twinx()            
+            ax2.set_ylabel('$V(x,t)$')
+        for t in args:
+            if t>t0:
+                t,P = self.fpintegrate(t0,t-t0,B,M,Np,dt,P=P)
+            ax.plot(X,P,label='t='+format(t,'.2f'))
+            if kwargs.get('potential',False):
+                ax2.plot(X,self.potential(X,t),linestyle='dashed')
             t0 = t
 
         ax.grid()
         ax.set_xlabel('$x$')
         ax.set_ylabel('$P(x,t)$')
-        #plt.legend(bbox_to_anchor=(1.05, 1),loc=2, borderaxespad=0.)
-        plt.legend()
+        plt.title('$\epsilon='+str(self.D0)+'$')        
+        ax.legend()
         plt.show()
 
     
@@ -174,6 +189,10 @@ class StochSaddleNode(StochModel):
     def __init__(self,Damp):
         super(self.__class__,self).__init__(lambda x,t: x**2+t,Damp)
 
+    def potential(self,X,t):
+        """ Return the value of the potential at the input points """
+        return -X**3/3.0-t*X
+        
     @classmethod
     def _trajectoryplot_decorate(cls,*args,**kwargs):
         """ Plot the fixed point trajectories """
@@ -255,12 +274,24 @@ class StochSaddleNode(StochModel):
         """ Numerical integration of the associated Fokker-Planck equation """        
         fdgrid = RegularCenteredFD(B,A,Np)
         # initial P(x) centered on the stable state:
-        P = kwargs.get('P',np.exp(-0.5*(fdgrid.grid+np.sqrt(np.abs(t0)))**2)/np.sqrt(2*np.pi))
+        P0 = kwargs.get('P0',np.exp(-0.5*(fdgrid.grid+np.sqrt(np.abs(t0)))**2)/np.sqrt(2*np.pi))
         # boundary conditions - reflecting on the left, absorbing on the right:
         dx = fdgrid.dx
         bc = BoundaryCondition(lambda Y,X,t: [Y[1]/(1+self.F(X[0],t)*dx/self.D0),0])
-        return EDPSolver().edp_int(self._fpeq,fdgrid,P,t0,T,dt,bc)
+        return super(self.__class__,self).fpintegrate(t0,T,B,A,Np,dt,P0=P0,bc=bc)
 
+    def pdfplot(self,*args,**kwargs):
+        """ Plot the pdf P(x,t) at various times """
+        t0 = kwargs.get('t0',args[0])
+        B,M = kwargs.get('bounds',(-10.0,10.0))
+        Np  = kwargs.get('npts',100)
+        X = np.linspace(B,M,num=Np)
+        P = kwargs.get('P0',np.exp(-0.5*(X+np.sqrt(np.abs(t0)))**2)/np.sqrt(2*np.pi))
+        if P is 'dirac':
+            P = np.zeros_like(X)
+            np.put(P,len(X[X<-np.sqrt(np.abs(t0))]),1.0)
+        if 'P0' in kwargs: del kwargs['P0']            
+        super(self.__class__,self).pdfplot(*args,P0=P,**kwargs)
 
         
 ###
