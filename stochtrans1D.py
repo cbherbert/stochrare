@@ -7,6 +7,9 @@ from scipy.interpolate import interp1d
 class StochModel(object):
     """ The generic class from which all the models I consider derive.
         It corresponds to the family of 1D SDEs dx_t = F(x_t,t)dt + sqrt(2*D0)dW_t """
+
+    default_dt = 0.1
+    
     def __init__(self,vecfield,Damp):
         """ vecfield is a function of two variables (x,t) and Damp the amplitude of the diffusion term (noise) """
         self.F  = vecfield 
@@ -18,6 +21,10 @@ class StochModel(object):
         fun = interp1d(X,-self.F(X,t))
         return np.array([integrate.quad(fun,0.0,x)[0] for x in X])
 
+    def increment(self,x,t,**kwargs):
+        """ Return F(x_t,t)dt + sqrt(2*D0)dW_t """
+        dt = kwargs.get('dt',self.default_dt)
+        return self.F(x,t) * dt + np.sqrt(2*self.D0*dt)*np.random.normal(0.0,1.0)
         
     def time_reversal(self):
         """ Apply time reversal and return the new model """
@@ -26,12 +33,12 @@ class StochModel(object):
     def trajectory(self,x0,t0,**kwargs):
         """ Integrate a trajectory with given initial condition (t0,x0) """
         x      = [x0]
-        dt     = kwargs.get('dt',0.1) # Time step
+        dt     = kwargs.get('dt',self.default_dt) # Time step
         time   = kwargs.get('T',10)   # Total integration time
         if dt < 0: time=-time
         tarray = np.linspace(t0,t0+time,num=time/dt+1)
         for t in tarray[1:]:    
-            x += [ x[-1] + self.F(x[-1],t) * dt + np.sqrt(2*self.D0*dt)*np.random.normal(0.0,1.0)]
+            x += [ x[-1] + self.increment(x[-1],t,dt=dt)]
         x = np.array(x)
         if kwargs.get('finite',False):            
             tarray = tarray[np.isfinite(x)]
@@ -71,36 +78,41 @@ class StochModel(object):
         """ Compute the last time with finite values, for one realization"""
         t,x = self.trajectory(x0,t0,**kwargs)
         return t[np.isfinite(x)][-1]
-
+    
     def _fpeq(self,P,X,t):
         """ Right hand side of the Fokker-Planck equation associated to the stochastic process """
         return -X.grad(self.F(X.grid,t)*P) + self.D0*X.laplacian(P)
     
-    def fpintegrate(self,t0,T,B,A,Np,dt,**kwargs):
-        """ Numerical integration of the associated Fokker-Planck equation """        
-        fdgrid = RegularCenteredFD(B,A,Np)                
-        P0 = kwargs.get('P0',np.exp(-0.5*(fdgrid.grid)**2)/np.sqrt(2*np.pi)) # initial P(x)
-        bc = kwargs.get('bc',DirichletBC([0,0]))
-        return EDPSolver().edp_int(self._fpeq,fdgrid,P0,t0,T,dt,bc)
-
+    def fpintegrate(self,t0,T,**kwargs):
+        """ Numerical integration of the associated Fokker-Planck equation """
+        # Computational parameters:
+        B,A    = kwargs.get('bounds',(-10.0,10.0))
+        Np     = kwargs.get('npts',100)
+        fdgrid = RegularCenteredFD(B,A,Np)
+        dt     = kwargs.get('dt',0.5*(np.abs(B-A)/(Np-1))**2)
+        bc     = kwargs.get('bc',DirichletBC([0,0]))
+        # initial P(x)
+        P0     = kwargs.get('P0','gauss')
+        if P0 is 'gauss':
+            P0 = np.exp(-0.5*(fdgrid.grid-kwargs.get('P0center',0.0))**2)/np.sqrt(2*np.pi)
+        if P0 is 'dirac':
+            P0 = np.zeros_like(fdgrid.grid)
+            np.put(P0,len(fdgrid.grid[fdgrid.grid<kwargs.get('P0center',0.0)]),1.0)
+        if T>0:
+            return EDPSolver().edp_int(self._fpeq,fdgrid,P0,t0,T,dt,bc)
+        else:
+            return t0,fdgrid.grid,P0
+    
     def pdfplot(self,*args,**kwargs):
         """ Plot the pdf P(x,t) at various times """
         fig = plt.figure()
         ax = plt.axes()
-
-        t0  = kwargs.get('t0',args[0])
-        B,M = kwargs.get('bounds',(-10.0,10.0))
-        Np  = kwargs.get('npts',100)
-        dt  = kwargs.get('dt',0.5*(np.abs(B-M)/(Np-1))**2)
-        X = np.linspace(B,M,num=Np)
-        P = kwargs.get('P0',np.exp(-0.5*X**2)/np.sqrt(2*np.pi))            
-
+        t0  = kwargs.pop('t0',args[0])
         if kwargs.get('potential',False):
             ax2 = ax.twinx()            
             ax2.set_ylabel('$V(x,t)$')
         for t in args:
-            if t>t0:
-                t,P = self.fpintegrate(t0,t-t0,B,M,Np,dt,P=P)
+            t,X,P = self.fpintegrate(t0,t-t0,**kwargs)
             ax.plot(X,P,label='t='+format(t,'.2f'))
             if kwargs.get('potential',False):
                 ax2.plot(X,self.potential(X,t),linestyle='dashed')
@@ -112,6 +124,17 @@ class StochModel(object):
         plt.title('$\epsilon='+str(self.D0)+'$')        
         ax.legend()
         plt.show()
+
+    # First passage time problems:
+    def firstpassagetime(self,x0,t0,A,**kwargs):
+        """ Computes the first passage time, defined by $\tau_A = inf{t>t0 | x(t)>A}$, for one realization """
+        x = x0
+        t = t0
+        dt = kwargs.get('dt',self.default_dt)
+        while (x <= A):
+            x += self.increment(x,t,dt=dt)
+            t += dt
+        return t
 
     
 class Wiener(StochModel):
@@ -216,17 +239,6 @@ class StochSaddleNode(StochModel):
             t = t[np.isfinite(x)]
             x = x[np.isfinite(x)]
         return t,x
-
-
-    def escapetime(self,x0,t0,A,**kwargs):
-        """ Computes the escape time, defined by inf{t>t0 | x(t)>A}, for one realization """
-        x = x0
-        t = t0
-        dt = kwargs.get('dt',self.default_dt)
-        while (x <= A):
-            x += self.F(x,t) * dt + np.sqrt(2*self.D0*dt)*np.random.normal(0.0,1.0)
-            t += dt
-        return t
     
     def escapetime_sample(self,x0,t0,A,**kwargs):
         """ This is a wrapper to the compiled vec_escape_time function """
@@ -270,28 +282,21 @@ class StochSaddleNode(StochModel):
         plt.show()
 
 
-    def fpintegrate(self,t0,T,B,A,Np,dt,**kwargs):
-        """ Numerical integration of the associated Fokker-Planck equation """        
-        fdgrid = RegularCenteredFD(B,A,Np)
-        # initial P(x) centered on the stable state:
-        P0 = kwargs.get('P0',np.exp(-0.5*(fdgrid.grid+np.sqrt(np.abs(t0)))**2)/np.sqrt(2*np.pi))
+    def fpintegrate(self,t0,T,**kwargs):
+        """ Numerical integration of the associated Fokker-Planck equation """
         # boundary conditions - reflecting on the left, absorbing on the right:
+        B,A    = kwargs.pop('bounds',(-10.0,10.0))
+        Np     = kwargs.pop('npts',100)
+        fdgrid = RegularCenteredFD(B,A,Np)        
         dx = fdgrid.dx
         bc = BoundaryCondition(lambda Y,X,t: [Y[1]/(1+self.F(X[0],t)*dx/self.D0),0])
-        return super(self.__class__,self).fpintegrate(t0,T,B,A,Np,dt,P0=P0,bc=bc)
+        # initial P(x) centered on the stable state:
+        return super(self.__class__,self).fpintegrate(t0,T,bounds=(B,A),npts=Np,P0=kwargs.pop('P0','gauss'),P0center=kwargs.pop('P0center',-np.sqrt(np.abs(t0))),bc=bc,**kwargs)
 
     def pdfplot(self,*args,**kwargs):
         """ Plot the pdf P(x,t) at various times """
         t0 = kwargs.get('t0',args[0])
-        B,M = kwargs.get('bounds',(-10.0,10.0))
-        Np  = kwargs.get('npts',100)
-        X = np.linspace(B,M,num=Np)
-        P = kwargs.get('P0',np.exp(-0.5*(X+np.sqrt(np.abs(t0)))**2)/np.sqrt(2*np.pi))
-        if P is 'dirac':
-            P = np.zeros_like(X)
-            np.put(P,len(X[X<-np.sqrt(np.abs(t0))]),1.0)
-        if 'P0' in kwargs: del kwargs['P0']            
-        super(self.__class__,self).pdfplot(*args,P0=P,**kwargs)
+        super(self.__class__,self).pdfplot(*args,P0=kwargs.pop('P0','gauss'),P0center=kwargs.pop('P0center',-np.sqrt(np.abs(t0))),**kwargs)
 
         
 ###

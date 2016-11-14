@@ -82,7 +82,7 @@ class EDPSolver(object):
             bc.apply(P,solgrid.grid,t)        # Applying boundary conditions
             t += dt
                 
-        return t,P
+        return t,solgrid.grid,P
 
     
 ###
