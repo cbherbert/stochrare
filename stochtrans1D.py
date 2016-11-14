@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from numba import float32,float64,vectorize,autojit,jit
 import scipy.integrate as integrate
 from scipy.interpolate import interp1d
+import edpy
 
 class StochModel(object):
     """ The generic class from which all the models I consider derive.
@@ -88,9 +89,9 @@ class StochModel(object):
         # Computational parameters:
         B,A    = kwargs.get('bounds',(-10.0,10.0))
         Np     = kwargs.get('npts',100)
-        fdgrid = RegularCenteredFD(B,A,Np)
+        fdgrid = edpy.RegularCenteredFD(B,A,Np)
         dt     = kwargs.get('dt',0.5*(np.abs(B-A)/(Np-1))**2)
-        bc     = kwargs.get('bc',DirichletBC([0,0]))
+        bc     = kwargs.get('bc',edpy.DirichletBC([0,0]))
         # initial P(x)
         P0     = kwargs.get('P0','gauss')
         if P0 is 'gauss':
@@ -99,7 +100,7 @@ class StochModel(object):
             P0 = np.zeros_like(fdgrid.grid)
             np.put(P0,len(fdgrid.grid[fdgrid.grid<kwargs.get('P0center',0.0)]),1.0)
         if T>0:
-            return EDPSolver().edp_int(self._fpeq,fdgrid,P0,t0,T,dt,bc)
+            return edpy.EDPSolver().edp_int(self._fpeq,fdgrid,P0,t0,T,dt,bc)
         else:
             return t0,fdgrid.grid,P0
     
@@ -287,9 +288,9 @@ class StochSaddleNode(StochModel):
         # boundary conditions - reflecting on the left, absorbing on the right:
         B,A    = kwargs.pop('bounds',(-10.0,10.0))
         Np     = kwargs.pop('npts',100)
-        fdgrid = RegularCenteredFD(B,A,Np)        
+        fdgrid = edpy.RegularCenteredFD(B,A,Np)        
         dx = fdgrid.dx
-        bc = BoundaryCondition(lambda Y,X,t: [Y[1]/(1+self.F(X[0],t)*dx/self.D0),0])
+        bc = edpy.BoundaryCondition(lambda Y,X,t: [Y[1]/(1+self.F(X[0],t)*dx/self.D0),0])
         # initial P(x) centered on the stable state:
         return super(self.__class__,self).fpintegrate(t0,T,bounds=(B,A),npts=Np,P0=kwargs.pop('P0','gauss'),P0center=kwargs.pop('P0center',-np.sqrt(np.abs(t0))),bc=bc,**kwargs)
 
