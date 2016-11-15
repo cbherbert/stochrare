@@ -317,7 +317,10 @@ class StochSaddleNode(StochModel):
         Np     = kwargs.pop('npts',100)
         fdgrid = edpy.RegularCenteredFD(B,A,Np)        
         dx = fdgrid.dx
-        bc = edpy.BoundaryCondition(lambda Y,X,t: [Y[1]/(1+self.F(X[0],t)*dx/self.D0),0])
+        if self.D0 == 0:
+            bc = edpy.DirichletBC([0,0])
+        else:
+            bc = edpy.BoundaryCondition(lambda Y,X,t: [Y[1]/(1+self.F(X[0],t)*dx/self.D0),0])
         # initial P(x) centered on the stable state:
         return super(self.__class__,self).fpintegrate(t0,T,bounds=(B,A),npts=Np,P0=kwargs.pop('P0','gauss'),P0center=kwargs.pop('P0center',-np.sqrt(np.abs(t0))),bc=bc,**kwargs)
 
