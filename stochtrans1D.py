@@ -99,6 +99,7 @@ class StochModel(object):
         if P0 is 'dirac':
             P0 = np.zeros_like(fdgrid.grid)
             np.put(P0,len(fdgrid.grid[fdgrid.grid<kwargs.get('P0center',0.0)]),1.0)
+            P0 /= integrate.trapz(P0,fdgrid.grid)
         if T>0:
             return edpy.EDPSolver().edp_int(self._fpeq,fdgrid,P0,t0,T,dt,bc)
         else:
@@ -136,6 +137,32 @@ class StochModel(object):
             x += self.increment(x,t,dt=dt)
             t += dt
         return t
+
+    def firstpassagetime_cdf(self,x0,A,*args,**kwargs):
+        """ Computes the CDF of the first passage time, Prob_{x0,t0}[\tau_A<t] by solving the Fokker-Planck equation """
+        t0 = kwargs.pop('t0',0.0)
+        if 'P0' in kwargs: del kwargs['P0']
+        if 'P0center' in kwargs: del kwargs['P0center']
+        G = []
+        t,X,P = self.fpintegrate(t0,0.0,P0='dirac',P0center=x0,**kwargs)       
+        for t in args:
+            t,X,P = self.fpintegrate(t0,t-t0,P0=P,**kwargs)
+            G += [integrate.trapz(P[X<A],X[X<A])]
+            t0 = t
+        output = {'cdf': 1.0-np.array(G), 'G': np.array(G)}
+        return output.get(kwargs.get('out','G'),np.array(G))
+
+    def firstpassagetime_moments(self,x0,A,*args,**kwargs):
+        """ Computes the moments of the first passage time, $\langle \tau_A^n \rangle_{x0,t0}$, by solving the Fokker-Planck equation """
+        t0   = kwargs.get('t0',0.0)
+        tmax = kwargs.pop('tmax',10.0)
+        nt   = kwargs.pop('nt',10)
+        times = np.linspace(t0,tmax,num=nt)
+        cdf = self.firstpassagetime_cdf(x0,A,*times,out='cdf',**kwargs)
+        Mn  = []
+        for n in args:
+            Mn += [t0**n + n*integrate.trapz(cdf*times**(n-1),times)]
+        return Mn
 
     
 class Wiener(StochModel):
