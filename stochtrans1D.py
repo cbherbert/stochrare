@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from numba import float32,float64,vectorize,autojit,jit
 import scipy.integrate as integrate
 from scipy.interpolate import interp1d
-import edpy
+import edpy, data
 
 class StochModel(object):
     """ The generic class from which all the models I consider derive.
@@ -270,6 +270,7 @@ class StochSaddleNode(StochModel):
     
     def escapetime_sample(self,x0,t0,A,**kwargs):
         """ This is a wrapper to the compiled vec_escape_time function """
+        # Input parameters and options:
         dt      = kwargs.get('dt',self.default_dt)
         ntraj   = kwargs.get('ntraj',100000)
         dtype   = kwargs.get('dtype',np.float32)
@@ -279,12 +280,27 @@ class StochSaddleNode(StochModel):
         else:
             if dt == 'auto': dt = min(self.default_dt,0.1/np.sqrt(np.abs(t0)))
             fun = vec_escape_time
-        return fun(
-            np.full(ntraj,x0,dtype=dtype),
-            np.full(ntraj,t0,dtype=dtype),
-            np.full(ntraj,A,dtype=dtype),
-            np.full(ntraj,dt,dtype=dtype),
-            np.full(ntraj,self.D0,dtype=dtype))    
+        # If we are using the caching mechanism, we check how many realizations we need to compute for the set of input parameters:
+        ncache = 0
+        if kwargs.get('cache',False):
+            db = data.Database()
+            sample_cache = db[self.D0,t0,x0,kwargs.get('dt',self.default_dt),A]
+            ncache = len(sample_cache)
+        # We compute the remaining realizations:
+        if ntraj>ncache:
+            sample = fun(
+                np.full(ntraj-ncache,x0,dtype=dtype),
+                np.full(ntraj-ncache,t0,dtype=dtype),
+                np.full(ntraj-ncache,A,dtype=dtype),
+                np.full(ntraj-ncache,dt,dtype=dtype),
+                np.full(ntraj-ncache,self.D0,dtype=dtype))
+            # Store the new realizations to cache
+            if kwargs.get('cache',False):
+                sample_cache = db[self.D0,t0,x0,kwargs.get('dt',self.default_dt),A] = np.concatenate((sample_cache,sample))
+            else:
+                sample_cache = sample
+        return sample_cache[:ntraj]
+    
 
     def escapetime_avg(self,x0,t0,A,**kwargs):
         """ Compute the average escape time for given initial condition (x0,t0) and threshold A """
