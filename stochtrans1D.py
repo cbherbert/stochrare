@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 from numba import float32,float64,vectorize,autojit,jit
 import scipy.integrate as integrate
 from scipy.interpolate import interp1d
+from scipy.special import airy, ai_zeros
+from scipy.optimize import brentq
 import edpy, data
 
 class StochModel(object):
@@ -238,7 +240,7 @@ class StochSaddleNode(StochModel):
     default_dt = 0.01
     
     def __init__(self,Damp):
-        super(self.__class__,self).__init__(lambda x,t: x**2+t,Damp)
+        super(StochSaddleNode,self).__init__(lambda x,t: x**2+t,Damp)
 
     def potential(self,X,t):
         """ Return the value of the potential at the input points """
@@ -345,6 +347,43 @@ class StochSaddleNode(StochModel):
         t0 = kwargs.get('t0',args[0])
         super(self.__class__,self).pdfplot(*args,P0=kwargs.pop('P0','gauss'),P0center=kwargs.pop('P0center',-np.sqrt(np.abs(t0))),**kwargs)
 
+class DynSaddleNode(StochSaddleNode):
+    """ This is just the deterministic version of the dynamical saddle-node bifurcation dx/dt = x^2+t, for which we have an analytic solution """
+
+    tstar = -ai_zeros(1)[0][0]
+    
+    def __init__(self):
+        super(self.__class__,self).__init__(0)        
+
+    @classmethod
+    def formula(cls,t,A0,B0):
+        ai,aip,bi,bip = airy(-t)
+        return (A0*aip+B0*bip)/(A0*ai+B0*bi)
+
+    @classmethod
+    def coefficients(cls,x0,t0):
+        ai,aip,bi,bip = airy(-t0)
+        alpha, beta = (x0*ai-aip,x0*bi-bip)        
+        if alpha == 0:
+            A0, B0 = (1,0)
+        else:
+            A0, B0 = (-beta/alpha,1)
+        return A0,B0
+            
+    @classmethod
+    def trajectory(cls,x0,t0,**kwargs):
+        """ Analytic solution for trajectories """        
+        dt     = kwargs.get('dt',cls.default_dt) # Time step
+        time   = kwargs.get('T',10)   # Total integration time
+        if dt < 0: time=-time
+        tarray = np.linspace(t0,t0+time,num=time/dt+1)
+        return tarray,cls.formula(tarray,*cls.coefficients(x0,t0))
+
+    @classmethod
+    def firstpassagetime(cls,x0,t0,A,**kwargs):
+        """ Compute first passage time using the analytic solution """
+        return brentq(lambda t: cls.formula(t,*cls.coefficients(x0,t0))-A,t0,cls.tstar)
+        
         
 ###
 #
