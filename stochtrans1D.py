@@ -285,7 +285,7 @@ class StochSaddleNode(StochModel):
         # If we are using the caching mechanism, we check how many realizations we need to compute for the set of input parameters:
         ncache = 0
         if kwargs.get('cache',False):
-            db = data.Database()
+            db = data.Database("/Users/corentin/data/stochtrans/tau.db")
             sample_cache = db[self.D0,t0,x0,kwargs.get('dt',self.default_dt),A]
             ncache = len(sample_cache)
         # We compute the remaining realizations:
