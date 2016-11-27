@@ -175,7 +175,7 @@ class StochModel(object):
             t0 = t
         G = np.array(G)
         time = np.array(args)
-        output = {'cdf': (time,1.0-G), 'G': (time,G), 'pdf': (time[1:-1],-edpy.CenteredFD(time).grad(G))}
+        output = {'cdf': (time,1.0-G), 'G': (time,G), 'pdf': (time[1:-1],-edpy.CenteredFD(time).grad(G)), 'lambda': (time[1:-1],-edpy.CenteredFD(time).grad(np.log(G)))}
         return output.get(kwargs.get('out','G'))
 
     def firstpassagetime_moments(self,x0,A,*args,**kwargs):
@@ -413,7 +413,7 @@ class StochSaddleNode(StochModel):
             G = np.exp(-(3./4.)**(2./3.)*(self.D0)**(5./3.)*gammaincc(5./3.,4.*(-t)**1.5/(3.*self.D0))*gamma(5./3.)/(6.*np.pi))
             Lambda = (-t)**(1.5)*np.exp(-4.*(-t)**1.5/(3.*self.D0))/(3*np.pi)
             P = Lambda*G            
-            return t,{'cdf': 1.0-G, 'G': G, 'pdf': P}.get(kwargs.get('out','G'))
+            return t,{'cdf': 1.0-G, 'G': G, 'pdf': P, 'lambda': Lambda}.get(kwargs.get('out','G'))
         else:
             return super(self.__class__,self).firstpassagetime_cdf(x0,A,*args,**kwargs)
         
