@@ -291,6 +291,19 @@ class DoubleWell(StochModel):
         """ Plot the pdf P(x,t) at various times """
         t0 = kwargs.get('t0',args[0])
         super(self.__class__,self).pdfplot(*args,P0=kwargs.pop('P0','gauss'),P0center=kwargs.pop('P0center',-1.0),P0std=kwargs.pop('P0std',0.1),**kwargs)
+
+    def firstpassagetime_cdf(self,x0,A,*args,**kwargs):
+        """ Computes the CDF of the first passage time, Prob_{x0,t0}[\tau_A<t], either by solving the Fokker-Planck equation, or by using the Eyring-Kramers formula. """
+        if kwargs.get('EK',False):
+            # t = np.array(args)
+            # t = t[t<0]
+            # G = np.exp(-(3./4.)**(2./3.)*(self.D0)**(5./3.)*gammaincc(5./3.,4.*(-t)**1.5/(3.*self.D0))*gamma(5./3.)/(6.*np.pi))
+            # Lambda = (-t)**(1.5)*np.exp(-4.*(-t)**1.5/(3.*self.D0))/(3*np.pi)
+            # P = Lambda*G            
+            # return t,{'cdf': 1.0-G, 'G': G, 'pdf': P, 'lambda': Lambda}.get(kwargs.get('out','G'))
+            pass
+        else:
+            return super(self.__class__,self).firstpassagetime_cdf(x0,A,*args,bc=kwargs.pop('bc',('reflecting','absorbing')),**kwargs)
 class StochSaddleNode(StochModel):
     default_dt = 0.01
     
