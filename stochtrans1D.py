@@ -85,6 +85,11 @@ class StochModel(object):
     def _fpeq(self,P,X,t):
         """ Right hand side of the Fokker-Planck equation associated to the stochastic process """
         return -X.grad(self.F(X.grid,t)*P) + self.D0*X.laplacian(P)
+    def _fpthsol(self,X,t,**kwargs):
+        """ Analytic solution of the Fokker-Planck equation, when it is known. 
+        In general this is an empty method but subclasses corresponding to stochastic processes
+        for which theoretical results exists should override it."""
+        pass
     
     def fpintegrate(self,t0,T,**kwargs):
         """ Numerical integration of the associated Fokker-Planck equation """
@@ -94,6 +99,7 @@ class StochModel(object):
         fdgrid = edpy.RegularCenteredFD(B,A,Np)
         dt     = kwargs.get('dt',0.5*(np.abs(B-A)/(Np-1))**2)
         bc     = kwargs.get('bc',edpy.DirichletBC([0,0]))
+        dt     = kwargs.pop('dt',0.25*(np.abs(B-A)/(Np-1))**2/self.D0)
         # initial P(x)
         P0     = kwargs.get('P0','gauss')
         if P0 is 'gauss':
@@ -118,6 +124,10 @@ class StochModel(object):
         for t in args:
             t,X,P = self.fpintegrate(t0,t-t0,**kwargs)
             ax.plot(X,P,label='t='+format(t,'.2f'))
+            line, = ax.plot(X,P,label='t='+format(t,'.2f'))
+            if kwargs.get('th',False):
+                Pth = self._fpthsol(X,t,**kwargs)
+                if Pth is not None: ax.plot(X,Pth,color=line.get_color(),linestyle='dotted')
             if kwargs.get('potential',False):
                 ax2.plot(X,self.potential(X,t),linestyle='dashed')
             t0 = t
@@ -171,10 +181,20 @@ class StochModel(object):
     
 class Wiener(StochModel):
     """ The Wiener process """
-    def __init__(self):
-        super(self.__class__,self).__init__(lambda x,t: 0, 1)
+    def __init__(self,D=1):
+        super(self.__class__,self).__init__(lambda x,t: 0, D)
 
+    def potential(self,X,t):
+        """ Useless (and potentially source of errors) to call the general potential routine since it is trivially zero here """
+        return np.zeros_like(X)
 
+    def _fpthsol(self,X,t,**kwargs):
+        """ Analytic solution of the heat equation. 
+        This should depend on the boundary conditions.
+        Right now, we do as if we were solving on the real axis."""        
+        return np.exp(-X**2.0/(4.0*self.D0*t))/np.sqrt(4.0*np.pi*self.D0*t)
+
+    
 class OrnsteinUhlenbeck(StochModel):
     """ The Ornstein-Uhlenbeck model """
     def __init__(self,mu,theta,D):
