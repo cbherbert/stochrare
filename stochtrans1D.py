@@ -85,6 +85,11 @@ class StochModel(object):
     def _fpeq(self,P,X,t):
         """ Right hand side of the Fokker-Planck equation associated to the stochastic process """
         return -X.grad(self.F(X.grid,t)*P) + self.D0*X.laplacian(P)
+
+    def _fpadj(self,G,X,t):
+        """ The adjoint of the Fokker-Planck operator, useful for instance in first passage time problems for homogeneous processes. """
+        return self.F(X.grid,t)[1:-1]*X.grad(G)+self.D0*X.laplacian(G)
+    
     def _fpbc(self,fdgrid,bc=('absorbing','absorbing'),**kwargs):
         """ Build the boundary conditions for the Fokker-Planck equation and return it.
         This is useful when at least one of the sides is a reflecting wall. """
@@ -130,12 +135,12 @@ class StochModel(object):
         fig = plt.figure()
         ax = plt.axes()
         t0  = kwargs.pop('t0',args[0])
+        fun = kwargs.pop('integ',self.fpintegrate)
         if kwargs.get('potential',False):
             ax2 = ax.twinx()            
             ax2.set_ylabel('$V(x,t)$')
         for t in args:
-            t,X,P = self.fpintegrate(t0,t-t0,**kwargs)
-            ax.plot(X,P,label='t='+format(t,'.2f'))
+            t,X,P = fun(t0,t-t0,**kwargs)
             line, = ax.plot(X,P,label='t='+format(t,'.2f'))
             if kwargs.get('th',False):
                 Pth = self._fpthsol(X,t,**kwargs)
@@ -146,7 +151,7 @@ class StochModel(object):
 
         ax.grid()
         ax.set_xlabel('$x$')
-        ax.set_ylabel('$P(x,t)$')
+        ax.set_ylabel(kwargs.get('ylabel','$P(x,t)$'))
         plt.title('$\epsilon='+str(self.D0)+'$')        
         ax.legend()
         plt.show()
@@ -287,6 +292,23 @@ class DoubleWell(StochModel):
         # initial P(x) centered on the stable state:
         return super(self.__class__,self).fpintegrate(t0,T,bounds=(B,A),npts=Np,P0=kwargs.pop('P0','gauss'),P0center=kwargs.pop('P0center',-1.0),P0std=kwargs.pop('P0std',0.1),bc=bc,**kwargs)
 
+    def fpadjintegrate(self,t0,T,**kwargs):
+        """ Numerical integration of the adjoint Fokker-Planck equation """
+        # Computational parameters:
+        B,A    = kwargs.pop('bounds',(-3.0,0.0))
+        Np     = kwargs.pop('npts',100)
+        fdgrid = edpy.RegularCenteredFD(B,A,Np)
+        dt     = kwargs.pop('dt',0.5*(np.abs(B-A)/(Np-1))**2)
+        bc     = self._fpbc(fdgrid,kwargs.pop('bc',('reflecting','absorbing')))
+        # initial G(x)
+        G0 = np.zeros_like(fdgrid.grid)
+        G0[fdgrid.grid<kwargs.get('M',0.0)] = 1.0
+        if T>0:
+            return edpy.EDPSolver().edp_int(self._fpadj,fdgrid,G0,t0,T,dt,bc)
+        else:
+            return t0,fdgrid.grid,G0
+
+    
     def pdfplot(self,*args,**kwargs):
         """ Plot the pdf P(x,t) at various times """
         t0 = kwargs.get('t0',args[0])
