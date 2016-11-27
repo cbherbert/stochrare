@@ -85,6 +85,19 @@ class StochModel(object):
     def _fpeq(self,P,X,t):
         """ Right hand side of the Fokker-Planck equation associated to the stochastic process """
         return -X.grad(self.F(X.grid,t)*P) + self.D0*X.laplacian(P)
+    def _fpbc(self,fdgrid,bc=('absorbing','absorbing'),**kwargs):
+        """ Build the boundary conditions for the Fokker-Planck equation and return it.
+        This is useful when at least one of the sides is a reflecting wall. """
+        dx = fdgrid.dx
+        dic = { ('absorbing', 'absorbing'): edpy.DirichletBC([0,0]),
+                    ('absorbing','reflecting'): edpy.BoundaryCondition(lambda Y,X,t: [0,Y[-2]/(1-self.F(X[-1],t)*dx/self.D0)]),
+                    ('reflecting','absorbing'): edpy.BoundaryCondition(lambda Y,X,t: [Y[1]/(1+self.F(X[0],t)*dx/self.D0),0]),
+                    ('reflecting','reflecting'): edpy.BoundaryCondition(lambda Y,X,t: [Y[1]/(1+self.F(X[0],t)*dx/self.D0),Y[-2]/(1-self.F(X[-1],t)*dx/self.D0)])}
+        if bc in dic:
+            return dic[bc]
+        else:
+            return bc
+
     def _fpthsol(self,X,t,**kwargs):
         """ Analytic solution of the Fokker-Planck equation, when it is known. 
         In general this is an empty method but subclasses corresponding to stochastic processes
@@ -94,12 +107,11 @@ class StochModel(object):
     def fpintegrate(self,t0,T,**kwargs):
         """ Numerical integration of the associated Fokker-Planck equation """
         # Computational parameters:
-        B,A    = kwargs.get('bounds',(-10.0,10.0))
-        Np     = kwargs.get('npts',100)
+        B,A    = kwargs.pop('bounds',(-10.0,10.0))
+        Np     = kwargs.pop('npts',100)
         fdgrid = edpy.RegularCenteredFD(B,A,Np)
-        dt     = kwargs.get('dt',0.5*(np.abs(B-A)/(Np-1))**2)
-        bc     = kwargs.get('bc',edpy.DirichletBC([0,0]))
         dt     = kwargs.pop('dt',0.25*(np.abs(B-A)/(Np-1))**2/self.D0)
+        bc     = self._fpbc(fdgrid,**kwargs)
         # initial P(x)
         P0     = kwargs.pop('P0','gauss')
         if P0 is 'gauss':
