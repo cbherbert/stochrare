@@ -58,7 +58,7 @@ class StochModel(object):
             lines += ax.plot(t,x)        
         
         ax.grid()
-        ax.set_ylim(kwargs.get('ylim',(-10.0,10.0)))
+        ax.set_ylim(kwargs.get('ylim',ax.get_ylim()))
         ax.set_xlim(kwargs.get('xlim',ax.get_xlim()))
         ax.set_xlabel('$t$')
         ax.set_ylabel('$x(t)$')
@@ -292,6 +292,8 @@ class StochSaddleNode(StochModel):
     @classmethod
     def _trajectoryplot_decorate(cls,*args,**kwargs):
         """ Plot the fixed point trajectories """
+        ax = kwargs.get('axis')
+        ax.set_ylim(kwargs.get('ylim',(-10.0,10.0)))
         tmin = min([min(t) for t,x in args])
         time = np.linspace(tmin,0,num=max(50,5*np.floor(abs(tmin))))
         plt.plot(time,-np.sqrt(np.abs(time)),color='black')
