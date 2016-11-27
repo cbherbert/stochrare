@@ -304,7 +304,17 @@ class DoubleWell(StochModel):
             pass
         else:
             return super(self.__class__,self).firstpassagetime_cdf(x0,A,*args,bc=kwargs.pop('bc',('reflecting','absorbing')),**kwargs)
+
+    
+    def instanton(self,x0,p0,*args,**kwargs):
+        def fun(Y,t):
+            return (Y[0]*(1.-Y[0]**2)+2.*Y[1]+self.Famp*np.sin(self.Om*t),Y[1]*(3.*Y[0]**2-1.))
+        return integrate.odeint(fun,(x0,p0),args,**kwargs)
+
 class StochSaddleNode(StochModel):
+    """ This is a very simple model for loss of stability with noise.
+    We use the normal form of the saddle-node bifurcation with a time dependent parameter, and add a stochastic term. """
+
     default_dt = 0.01
     
     def __init__(self,Damp):
@@ -429,6 +439,12 @@ class StochSaddleNode(StochModel):
             return t,{'cdf': 1.0-G, 'G': G, 'pdf': P, 'lambda': Lambda}.get(kwargs.get('out','G'))
         else:
             return super(self.__class__,self).firstpassagetime_cdf(x0,A,*args,**kwargs)
+
+    @classmethod
+    def instanton(cls,x0,p0,*args,**kwargs):
+        def fun(Y,t):
+            return (Y[0]**2+2.*Y[1]+t,-2.*Y[0]*Y[1])
+        return integrate.odeint(fun,(x0,p0),args,**kwargs)
         
 class DynSaddleNode(StochSaddleNode):
     """ This is just the deterministic version of the dynamical saddle-node bifurcation dx/dt = x^2+t, for which we have an analytic solution """
