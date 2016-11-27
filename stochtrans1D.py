@@ -101,9 +101,9 @@ class StochModel(object):
         bc     = kwargs.get('bc',edpy.DirichletBC([0,0]))
         dt     = kwargs.pop('dt',0.25*(np.abs(B-A)/(Np-1))**2/self.D0)
         # initial P(x)
-        P0     = kwargs.get('P0','gauss')
+        P0     = kwargs.pop('P0','gauss')
         if P0 is 'gauss':
-            P0 = np.exp(-0.5*(fdgrid.grid-kwargs.get('P0center',0.0))**2)/np.sqrt(2*np.pi)
+            P0 = np.exp(-0.5*((fdgrid.grid-kwargs.get('P0center',0.0))/kwargs.get('P0std',1.0))**2)/(np.sqrt(2*np.pi)*kwargs.get('P0std',1.0))
         if P0 is 'dirac':
             P0 = np.zeros_like(fdgrid.grid)
             np.put(P0,len(fdgrid.grid[fdgrid.grid<kwargs.get('P0center',0.0)]),1.0)
@@ -206,30 +206,33 @@ class DoubleWell(StochModel):
 
     def __init__(self,Famp,omega,Damp):
         super(self.__class__,self).__init__(lambda x,t: -x*(x**2-1)+Famp*np.sin(omega*t),Damp)
+        self.Famp = Famp
+        self.Om   = omega
 
+    def potential(self,X,t):
+        """ Return the value of the potential at the input points """
+        Y = X**2
+        return Y*(Y-2.0)/4.0-X*self.Famp*np.sin(self.Om*t)
+        
     def phaseportrait(self,a,b,ntraj,niter,dt):
-        """ Compute and plot the trajectories for an ensemble of initial conditions """
-        time = np.linspace(0,(niter-1)*dt,num=niter)
+        """ Compute and plot the trajectories for an ensemble of initial conditions """        
         for x0 in np.linspace(a,b,num=ntraj):
-            plt.plot(time,self.trajectory(x0,0,T=niter*dt,dt=dt))        
+            plt.plot(*self.trajectory(x0,0,T=niter*dt,dt=dt))        
         plt.xlabel('$t$')
         plt.ylabel('$x(t)$')
-        plt.show()
+        plt.show()        
 
-    def trajectoryplot(self,*args,**kwargs):
-        """ Plot previously computed trajectories with initial time t0 and time unit dt """
-        dt = kwargs.get('dt',1)
-        t0 = kwargs.get('t0',0)
-        Tmin = kwargs.get('tmin',t0)
-        tmax = t0
-        for x in args:
-            plt.plot(np.linspace(t0,(len(x)-1)*dt,num=len(x)),x)
-            tmax = max(tmax,len(x)*dt)
-        tmax = kwargs.get('tmax',tmax)
-        plt.xlim([tmin,tmax])
-        plt.xlabel('$t$')
-        plt.ylabel('$x(t)$')
-        plt.show()
+    @classmethod
+    def _trajectoryplot_decorate(cls,*args,**kwargs):
+        """ Plot the fixed point trajectories """
+        ax = kwargs.get('axis')
+        ax.axhline(y=1.0,linewidth=1,color='black')
+        ax.axhline(y=0.0,linewidth=1,color='black',linestyle='dashed')
+        ax.axhline(y=-1.0,linewidth=1,color='black')
+        # tmin = kwargs.get('tmin',np.min(zip(*args)[0]))
+        # tmax = kwargs.get('tmax',np.max(zip(*args)[0]))
+        # ax.set_xlim([tmin,tmax])        
+
 
     def running_mean(x, N):
         cumsum = np.cumsum(np.insert(x, 0, 0))
@@ -256,8 +259,26 @@ class DoubleWell(StochModel):
     def residencetimes(self,x,c):        
         transtimes = np.array([t for t in self.levelscrossing(x,c)])
         return transtimes[1:]-transtimes[:-1]
-        
 
+
+    def fpintegrate(self,t0,T,**kwargs):
+        """ Numerical integration of the associated Fokker-Planck equation """
+        B,A    = kwargs.pop('bounds',(-3.0,3.0))
+        Np     = kwargs.pop('npts',100)
+        fdgrid = edpy.RegularCenteredFD(B,A,Np)        
+        dx = fdgrid.dx
+        # if self.D0 == 0:
+        #     bc = edpy.DirichletBC([0,0])
+        # else:
+        #     bc = edpy.BoundaryCondition(lambda Y,X,t: [Y[1]/(1+self.F(X[0],t)*dx/self.D0),0])
+        bc = kwargs.pop('bc', edpy.BoundaryCondition(lambda Y,X,t: [Y[1]/(1+self.F(X[0],t)*dx/self.D0),Y[-2]/(1-self.F(X[-1],t)*dx/self.D0)]))
+        # initial P(x) centered on the stable state:
+        return super(self.__class__,self).fpintegrate(t0,T,bounds=(B,A),npts=Np,P0=kwargs.pop('P0','gauss'),P0center=kwargs.pop('P0center',-1.0),P0std=kwargs.pop('P0std',0.1),bc=bc,**kwargs)
+
+    def pdfplot(self,*args,**kwargs):
+        """ Plot the pdf P(x,t) at various times """
+        t0 = kwargs.get('t0',args[0])
+        super(self.__class__,self).pdfplot(*args,P0=kwargs.pop('P0','gauss'),P0center=kwargs.pop('P0center',-1.0),P0std=kwargs.pop('P0std',0.1),**kwargs)
 class StochSaddleNode(StochModel):
     default_dt = 0.01
     
