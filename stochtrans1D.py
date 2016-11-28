@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from numba import float32,float64,vectorize,autojit,jit
 import scipy.integrate as integrate
+import scipy.sparse as sps
 from scipy.interpolate import interp1d
 from scipy.special import airy, ai_zeros, gamma,gammaincc
 from scipy.optimize import brentq
@@ -89,6 +90,10 @@ class StochModel(object):
     def _fpadj(self,G,X,t):
         """ The adjoint of the Fokker-Planck operator, useful for instance in first passage time problems for homogeneous processes. """
         return self.F(X.grid,t)[1:-1]*X.grad(G)+self.D0*X.laplacian(G)
+
+    def _fpmat(self,X,t):
+        """ Sparse matrix representation of the linear operator corresponding to the RHS of the FP equation """
+        return -X.grad_mat()*sps.dia_matrix((self.F(X.grid,t),np.array([0])),shape=(X.N,X.N)) + self.D0*X.lapl_mat()
     
     def _fpbc(self,fdgrid,bc=('absorbing','absorbing'),**kwargs):
         """ Build the boundary conditions for the Fokker-Planck equation and return it.
@@ -126,7 +131,10 @@ class StochModel(object):
             np.put(P0,len(fdgrid.grid[fdgrid.grid<kwargs.get('P0center',0.0)]),1.0)
             P0 /= integrate.trapz(P0,fdgrid.grid)
         if T>0:
-            return edpy.EDPSolver().edp_int(self._fpeq,fdgrid,P0,t0,T,dt,bc)
+            if kwargs.get('method','euler') in ('impl','implicit','bwd','backward','cn','cranknicolson','crank-nicolson'):
+                return edpy.EDPLinSolver().edp_int(self._fpmat,fdgrid,P0,t0,T,dt,bc,scheme=kwargs.get('method'))
+            else:
+                return edpy.EDPSolver().edp_int(self._fpeq,fdgrid,P0,t0,T,dt,bc)
         else:
             return t0,fdgrid.grid,P0
     
