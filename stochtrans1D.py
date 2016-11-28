@@ -104,7 +104,7 @@ class StochModel(object):
                     ('reflecting','absorbing'): edpy.BoundaryCondition(lambda Y,X,t: [Y[1]/(1+self.F(X[0],t)*dx/self.D0),0]),
                     ('reflecting','reflecting'): edpy.BoundaryCondition(lambda Y,X,t: [Y[1]/(1+self.F(X[0],t)*dx/self.D0),Y[-2]/(1-self.F(X[-1],t)*dx/self.D0)])}
         if bc in dic:
-            return dic[bc]
+            return edpy.DirichletBC([0,0]) if self.D0 == 0 else dic[bc]
         else:
             return bc
 
@@ -288,18 +288,12 @@ class DoubleWell(StochModel):
 
 
     def fpintegrate(self,t0,T,**kwargs):
-        """ Numerical integration of the associated Fokker-Planck equation """
-        B,A    = kwargs.pop('bounds',(-3.0,3.0))
-        Np     = kwargs.pop('npts',100)
-        fdgrid = edpy.RegularCenteredFD(B,A,Np)        
-        dx = fdgrid.dx
-        # if self.D0 == 0:
-        #     bc = edpy.DirichletBC([0,0])
-        # else:
-        #     bc = edpy.BoundaryCondition(lambda Y,X,t: [Y[1]/(1+self.F(X[0],t)*dx/self.D0),0])
-        bc = kwargs.pop('bc', edpy.BoundaryCondition(lambda Y,X,t: [Y[1]/(1+self.F(X[0],t)*dx/self.D0),Y[-2]/(1-self.F(X[-1],t)*dx/self.D0)]))
-        # initial P(x) centered on the stable state:
-        return super(self.__class__,self).fpintegrate(t0,T,bounds=(B,A),npts=Np,P0=kwargs.pop('P0','gauss'),P0center=kwargs.pop('P0center',-1.0),P0std=kwargs.pop('P0std',0.1),bc=bc,**kwargs)
+        """ Numerical integration of the associated Fokker-Planck equation.
+        We only modify the default values for a few parameters, to adjust to the specificities of the model:
+        - Default boundaries do not need to be so wide (potential is very steep)
+        - Default initial condition is (a Gaussian) centered on one of the wells (-1) with smaller standard deviation 
+        - Default boundary conditions are reflecting on both sides """
+        return super(self.__class__,self).fpintegrate(t0,T,bounds=kwargs.pop('bounds',(-3.0,3.0)),P0center=kwargs.pop('P0center',-1.0),P0std=kwargs.pop('P0std',0.1),bc=kwargs.pop('bc',('reflecting','reflecting')),**kwargs)
 
     def fpadjintegrate(self,t0,T,**kwargs):
         """ Numerical integration of the adjoint Fokker-Planck equation """
@@ -440,18 +434,12 @@ class StochSaddleNode(StochModel):
 
 
     def fpintegrate(self,t0,T,**kwargs):
-        """ Numerical integration of the associated Fokker-Planck equation """
-        # boundary conditions - reflecting on the left, absorbing on the right:
-        B,A    = kwargs.pop('bounds',(-10.0,10.0))
-        Np     = kwargs.pop('npts',100)
-        fdgrid = edpy.RegularCenteredFD(B,A,Np)        
-        dx = fdgrid.dx
-        if self.D0 == 0:
-            bc = edpy.DirichletBC([0,0])
-        else:
-            bc = edpy.BoundaryCondition(lambda Y,X,t: [Y[1]/(1+self.F(X[0],t)*dx/self.D0),0])
-        # initial P(x) centered on the stable state:
-        return super(self.__class__,self).fpintegrate(t0,T,bounds=(B,A),npts=Np,P0=kwargs.pop('P0','gauss'),P0center=kwargs.pop('P0center',-np.sqrt(np.abs(t0))),bc=bc,**kwargs)
+        """ Numerical integration of the associated Fokker-Planck equation.
+        We only modify the default values for a few parameters, to adjust to the specificities of the model:        
+        - Default initial condition is (a Gaussian) centered on the attractor
+        - Default boundary conditions are reflecting on the left and absorbing on the right (potential does not go up on that side)
+        Default boundaries, etc, are fine """        
+        return super(self.__class__,self).fpintegrate(t0,T,P0center=kwargs.pop('P0center',-np.sqrt(np.abs(t0))),bc=kwargs.pop('bc',('reflecting','absorbing')),**kwargs)
 
     def pdfplot(self,*args,**kwargs):
         """ Plot the pdf P(x,t) at various times """
