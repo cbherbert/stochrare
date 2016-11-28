@@ -301,22 +301,17 @@ class DoubleWell(StochModel):
         B,A    = kwargs.pop('bounds',(-3.0,0.0))
         Np     = kwargs.pop('npts',100)
         fdgrid = edpy.RegularCenteredFD(B,A,Np)
-        dt     = kwargs.pop('dt',0.5*(np.abs(B-A)/(Np-1))**2)
-        bc     = self._fpbc(fdgrid,kwargs.pop('bc',('reflecting','absorbing')))
+        dt     = kwargs.pop('dt',0.25*(np.abs(B-A)/(Np-1))**2/self.D0)
+        bc     = edpy.BoundaryCondition(lambda Y,X,t: [Y[1],0])
         # initial G(x)
         G0 = np.zeros_like(fdgrid.grid)
         G0[fdgrid.grid<kwargs.get('M',0.0)] = 1.0
         if T>0:
-            return edpy.EDPSolver().edp_int(self._fpadj,fdgrid,G0,t0,T,dt,bc)
+            return edpy.EDPSolver().edp_int(self._fpadj,fdgrid,kwargs.get('P0',G0),t0,T,dt,bc)
         else:
             return t0,fdgrid.grid,G0
 
     
-    def pdfplot(self,*args,**kwargs):
-        """ Plot the pdf P(x,t) at various times """
-        t0 = kwargs.get('t0',args[0])
-        super(self.__class__,self).pdfplot(*args,P0=kwargs.pop('P0','gauss'),P0center=kwargs.pop('P0center',-1.0),P0std=kwargs.pop('P0std',0.1),**kwargs)
-
     def firstpassagetime_cdf(self,x0,A,*args,**kwargs):
         """ Computes the CDF of the first passage time, Prob_{x0,t0}[\tau_A<t], either by solving the Fokker-Planck equation, or by using the Eyring-Kramers formula. """
         if kwargs.get('EK',False):
