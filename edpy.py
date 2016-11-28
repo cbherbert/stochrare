@@ -75,6 +75,11 @@ class DirichletBC(BoundaryCondition):
     def __init__(self,Y0):
         super(self.__class__,self).__init__(lambda Y,X,t: Y0)
 
+class NeumannBC(BoundaryCondition):
+    """ Neumann Boundary Conditions (1D only for now) """
+    def __init__(self,DY0):
+        super(self.__class__,self).__init__(lambda Y,X,t: Y[(1,-2),]-(X[1:]-X[:-1])[(0,-1),]*DY0)
+        
 # class AbsorbingBC(DirichletBC):
 #     def __init__(self):
 #         super(self.__class__,self).__init__([0,0])
