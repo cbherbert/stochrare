@@ -148,6 +148,7 @@ class StochModel(object):
             if kwargs.get('potential',False):
                 ax2.plot(X,self.potential(X,t),linestyle='dashed')
             t0 = t
+            kwargs['P0'] = P
 
         ax.grid()
         ax.set_xlabel('$x$')
