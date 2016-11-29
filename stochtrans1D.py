@@ -329,8 +329,9 @@ class DoubleWell(StochModel):
         return super(self.__class__,self).fpintegrate(t0,T,bounds=kwargs.pop('bounds',(-3.0,0.0)),P0=kwargs.pop('P0',G0),bc=kwargs.pop('bc',edpy.BoundaryCondition(lambda Y,X,t: [Y[1],0])),adjoint=True,**kwargs)
     
     def firstpassagetime_cdf(self,x0,A,*args,**kwargs):
-        """ Computes the CDF of the first passage time, Prob_{x0,t0}[\tau_A<t], either by solving the Fokker-Planck equation, or by using the Eyring-Kramers formula. """
-        if kwargs.get('EK',False):
+        """ Computes the CDF of the first passage time, Prob_{x0,t0}[\tau_A<t], either by solving the Fokker-Planck equation, its adjoint, or by using the theoretical solution. """
+        src = kwargs.pop('src','FP')
+        if src == 'theory':
             # t = np.array(args)
             # t = t[t<0]
             # G = np.exp(-(3./4.)**(2./3.)*(self.D0)**(5./3.)*gammaincc(5./3.,4.*(-t)**1.5/(3.*self.D0))*gamma(5./3.)/(6.*np.pi))
@@ -338,9 +339,20 @@ class DoubleWell(StochModel):
             # P = Lambda*G            
             # return t,{'cdf': 1.0-G, 'G': G, 'pdf': P, 'lambda': Lambda}.get(kwargs.get('out','G'))
             pass
+        elif src == 'adjoint':
+            t0 = kwargs.pop('t0',0.0)
+            G = [1.0]
+            for t in args:
+                t,X,G1 = self.fpadjintegrate(t0,t-t0,**kwargs)
+                t0 = t
+                kwargs['P0'] = G1
+                G += [interp1d(X,G1)(x0)]
+            G = np.array(G)
+            time = np.array([t0]+list(args))
+            output = {'cdf': (time,1.0-G), 'G': (time,G), 'pdf': (time[1:-1],-edpy.CenteredFD(time).grad(G)), 'lambda': (time[1:-1],-edpy.CenteredFD(time).grad(np.log(G)))}
+            return output.get(kwargs.get('out','G'))
         else:
             return super(self.__class__,self).firstpassagetime_cdf(x0,A,*args,bc=kwargs.pop('bc',('reflecting','absorbing')),**kwargs)
-
     
     def instanton(self,x0,p0,*args,**kwargs):
         def fun(Y,t):
