@@ -357,7 +357,35 @@ class DoubleWell(StochModel):
             return output.get(kwargs.get('out','G'))
         else:
             return super(self.__class__,self).firstpassagetime_cdf(x0,A,*args,bc=kwargs.pop('bc',('reflecting','absorbing')),**kwargs)
-    
+
+    def firstpassagetime_avg(self,x0,*args,**kwargs):
+        """
+        Compute the mean first passage time by one of the following methods: solving the FP equation, its adjoint, or using the theoretical solution.
+        x0 is the initial condition (at t0=0), and 'args' contains the list of threshold values for which to compute the first passage time.
+        """
+        src  = kwargs.pop('src','FP')
+        tmax = kwargs.pop('tmax',100.0)
+        nt   = kwargs.pop('nt',10)
+        # args have to be sorted in increasing order:
+        args = np.sort(args)
+        # remove the values of args which are <= x0:
+        badargs,args = (args[args<=x0],args[args>x0])
+        if src == 'theory':
+            def exppot_int(a,b,sign=-1,fun=lambda z: 1):
+                z = np.linspace(a,b)
+                return integrate.trapz(np.exp(sign*self.potential(z,0)/self.D0)*fun(z),z)
+            # compute the inner integral and interpolate:
+            y = np.linspace(x0,args[-1])
+            arr = np.array([exppot_int(*u) for u in [(-10.0,y[0])]+zip(y[:-1],y[1:])])
+            ifun = interp1d(y,arr.cumsum())
+            # now compute the outer integral by chunks
+            return np.concatenate((badargs,args)),np.array(len(badargs)*[0.]+[exppot_int(*bds,sign=1,fun=ifun) for bds in [(x0,args[0])]+zip(args[:-1],args[1:])]).cumsum()/self.D0
+        elif src == 'adjoint':
+            # here we need to solve the adjoint FP equation for each threshold value, so this is much more expensive than the theoretical formula of course.
+            return np.concatenate((badargs,args)),np.array(len(badargs)*[0.]+[integrate.trapz(*(self.firstpassagetime_cdf(x0,A,*np.linspace(0.0,tmax,num=nt),t0=0.0,out='G',src='adjoint',**kwargs)[::-1])) for A in args])
+        else:
+            pass
+
     def instanton(self,x0,p0,*args,**kwargs):
         def fun(Y,t):
             return (Y[0]*(1.-Y[0]**2)+2.*Y[1]+self.Famp*np.sin(self.Om*t),Y[1]*(3.*Y[0]**2-1.))
