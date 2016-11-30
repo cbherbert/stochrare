@@ -216,7 +216,7 @@ class StochModel(object):
         tmax = kwargs.pop('tmax',10.0)
         nt   = kwargs.pop('nt',10)
         times = np.linspace(t0,tmax,num=nt)
-        cdf = self.firstpassagetime_cdf(x0,A,*times,out='cdf',**kwargs)
+        t,cdf = self.firstpassagetime_cdf(x0,A,*times,out='cdf',**kwargs)
         Mn  = []
         for n in args:
             Mn += [t0**n + n*integrate.trapz(cdf*times**(n-1),times)]
@@ -321,12 +321,12 @@ class DoubleWell(StochModel):
         Just keep it in mind when modifying the base class. """
         # Set initial G(x)
         # I still need to define the grid at this level to build the IC...
-        B,A = kwargs.get('bounds',(-3.0,0.0))
+        B,A    = kwargs.pop('bounds',(-3.0,0.0))
         fdgrid = edpy.RegularCenteredFD(B,A,kwargs.get('npts',100))
-        G0 = np.zeros_like(fdgrid.grid)
-        G0[fdgrid.grid<kwargs.get('M',0.0)] = 1.0
+        G0     = np.ones_like(fdgrid.grid)
+        G0[fdgrid.grid >= A] = 0.0
         # Call integration routine with adjoint FP equation:
-        return super(self.__class__,self).fpintegrate(t0,T,bounds=kwargs.pop('bounds',(-3.0,0.0)),P0=kwargs.pop('P0',G0),bc=kwargs.pop('bc',edpy.BoundaryCondition(lambda Y,X,t: [Y[1],0])),adjoint=True,**kwargs)
+        return super(self.__class__,self).fpintegrate(t0,T,bounds=(B,A),P0=kwargs.pop('P0',G0),bc=kwargs.pop('bc',edpy.BoundaryCondition(lambda Y,X,t: [Y[1],0])),adjoint=True,**kwargs)
     
     def firstpassagetime_cdf(self,x0,A,*args,**kwargs):
         """ Computes the CDF of the first passage time, Prob_{x0,t0}[\tau_A<t], either by solving the Fokker-Planck equation, its adjoint, or by using the theoretical solution. """
@@ -341,14 +341,18 @@ class DoubleWell(StochModel):
             pass
         elif src == 'adjoint':
             t0 = kwargs.pop('t0',0.0)
+            # The upper boundary of the integration domain should always be A
+            # Hence, here only the lower end of the user-provided domain is used (we still need the two things for the FP method)
+            bnds = (kwargs.pop('bounds',(-3.0,0.0))[0],A)
+            time = np.sort([t0]+list(args))
+            time = time[time >= t0]
             G = [1.0]
-            for t in args:
-                t,X,G1 = self.fpadjintegrate(t0,t-t0,**kwargs)
+            for t in time[1:]:
+                t,X,G1 = self.fpadjintegrate(t0,t-t0,bounds=bnds,**kwargs)
                 t0 = t
                 kwargs['P0'] = G1
                 G += [interp1d(X,G1)(x0)]
             G = np.array(G)
-            time = np.array([t0]+list(args))
             output = {'cdf': (time,1.0-G), 'G': (time,G), 'pdf': (time[1:-1],-edpy.CenteredFD(time).grad(G)), 'lambda': (time[1:-1],-edpy.CenteredFD(time).grad(np.log(G)))}
             return output.get(kwargs.get('out','G'))
         else:
