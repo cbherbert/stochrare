@@ -382,7 +382,11 @@ class DoubleWell(StochModel):
             return np.concatenate((badargs,args)),np.array(len(badargs)*[0.]+[exppot_int(*bds,sign=1,fun=ifun) for bds in [(x0,args[0])]+zip(args[:-1],args[1:])]).cumsum()/self.D0
         elif src == 'adjoint':
             # here we need to solve the adjoint FP equation for each threshold value, so this is much more expensive than the theoretical formula of course.
-            return np.concatenate((badargs,args)),np.array(len(badargs)*[0.]+[integrate.trapz(*(self.firstpassagetime_cdf(x0,A,*np.linspace(0.0,tmax,num=nt),t0=0.0,out='G',src='adjoint',**kwargs)[::-1])) for A in args])
+            def interp_int(G,t):
+                logG = interp1d(t,np.log(G),fill_value="extrapolate")
+                return integrate.quad(lambda x: np.exp(logG(x)),0.0,np.inf)[0]
+            integ_method = {True: interp_int, False: integrate.trapz}.get(kwargs.pop('interpolate',True))
+            return np.concatenate((badargs,args)),np.array(len(badargs)*[0.]+[integ_method(*(self.firstpassagetime_cdf(x0,A,*np.linspace(0.0,tmax,num=nt),t0=0.0,out='G',src='adjoint',**kwargs)[::-1])) for A in args])
         else:
             pass
 
