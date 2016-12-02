@@ -248,6 +248,8 @@ class OrnsteinUhlenbeck(StochModel):
 class DoubleWell(StochModel):
     """ Double well potential model, possibly including periodic forcing and noise """
 
+    default_dt = 0.01
+
     def __init__(self,Famp,omega,Damp):
         super(self.__class__,self).__init__(lambda x,t: -x*(x**2-1)+Famp*np.sin(omega*t),Damp)
         self.Famp = Famp
@@ -303,6 +305,22 @@ class DoubleWell(StochModel):
     def residencetimes(self,x,c):        
         transtimes = np.array([t for t in self.levelscrossing(x,c)])
         return transtimes[1:]-transtimes[:-1]
+
+
+    def escapetime_sample(self,x0,t0,A,**kwargs):
+        """ This is a wrapper to the compiled vec_escape_time_dw function.
+        It carries out direct Monte-Carlo simulations to compute realizations of the stochastic process.
+        """
+        # Input parameters and options:
+        dt      = kwargs.get('dt',self.default_dt)
+        ntraj   = kwargs.get('ntraj',100000)
+        dtype   = kwargs.get('dtype',np.float32)
+        return vec_escape_time_dw(
+                np.full(ntraj,x0,dtype=dtype),
+                np.full(ntraj,t0,dtype=dtype),
+                np.full(ntraj,A,dtype=dtype),
+                np.full(ntraj,dt,dtype=dtype),
+                np.full(ntraj,self.D0,dtype=dtype))
 
 
     def fpintegrate(self,t0,T,**kwargs):
@@ -586,6 +604,16 @@ def vec_escape_time_adapt(x0,t0,A,dtmax,D0):
     while (x <= A):
         dt = min(dtmax,0.1/np.sqrt(np.abs(t)))
         x += (x**2+t) * dt + np.sqrt(2*D0*dt)*np.random.normal(0.0,1.0)
+        t += dt
+    return t
+
+@vectorize(['float32(float32,float32,float32,float32,float32)','float64(float64,float64,float64,float64,float64)'],target='parallel')
+def vec_escape_time_dw(x0,t0,A,dt,D0):
+    """ Computes the escape time, defined by inf{t>t0 | x(t)>A}, for one realization, for the double well potential """
+    x = x0
+    t = t0
+    while (x <= A):
+        x += - x * (x**2-1) * dt + np.sqrt(2*D0*dt)*np.random.normal(0.0,1.0)
         t += dt
     return t
 
