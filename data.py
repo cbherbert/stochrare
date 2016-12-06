@@ -94,6 +94,9 @@ class FirstPassageData(Database):
     
     def show_eps(self):
         """ Return the list of noise amplitudes stored in the database """
-        return set(zip(*self.keys())[0])
+        if self == {}:
+            return set()
+        else:
+            return set(zip(*self.keys())[0])
     
     
