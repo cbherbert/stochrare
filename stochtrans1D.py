@@ -329,7 +329,7 @@ class DrivenDoubleWell(StochModel):
         - Default boundaries do not need to be so wide (potential is very steep)
         - Default initial condition is (a Gaussian) centered on one of the wells (-1) with smaller standard deviation 
         - Default boundary conditions are reflecting on both sides """
-        return super(self.__class__,self).fpintegrate(t0,T,bounds=kwargs.pop('bounds',(-3.0,3.0)),P0center=kwargs.pop('P0center',-1.0),P0std=kwargs.pop('P0std',0.1),bc=kwargs.pop('bc',('reflecting','reflecting')),**kwargs)
+        return super(DrivenDoubleWell,self).fpintegrate(t0,T,bounds=kwargs.pop('bounds',(-3.0,3.0)),P0center=kwargs.pop('P0center',-1.0),P0std=kwargs.pop('P0std',0.1),bc=kwargs.pop('bc',('reflecting','reflecting')),**kwargs)
 
     def fpadjintegrate(self,t0,T,**kwargs):
         """ Numerical integration of the adjoint Fokker-Planck equation.
@@ -344,7 +344,7 @@ class DrivenDoubleWell(StochModel):
         G0     = np.ones_like(fdgrid.grid)
         G0[fdgrid.grid >= A] = 0.0
         # Call integration routine with adjoint FP equation:
-        return super(self.__class__,self).fpintegrate(t0,T,bounds=(B,A),P0=kwargs.pop('P0',G0),bc=kwargs.pop('bc',edpy.BoundaryCondition(lambda Y,X,t: [Y[1],0])),adjoint=True,**kwargs)
+        return super(DrivenDoubleWell,self).fpintegrate(t0,T,bounds=(B,A),P0=kwargs.pop('P0',G0),bc=kwargs.pop('bc',edpy.BoundaryCondition(lambda Y,X,t: [Y[1],0])),adjoint=True,**kwargs)
     
     def firstpassagetime_cdf(self,x0,A,*args,**kwargs):
         """ Computes the CDF of the first passage time, Prob_{x0,t0}[\tau_A<t], either by solving the Fokker-Planck equation, its adjoint, or by using the theoretical solution. """
@@ -374,7 +374,7 @@ class DrivenDoubleWell(StochModel):
             output = {'cdf': (time,1.0-G), 'G': (time,G), 'pdf': (time[1:-1],-edpy.CenteredFD(time).grad(G)), 'lambda': (time[1:-1],-edpy.CenteredFD(time).grad(np.log(G)))}
             return output.get(kwargs.get('out','G'))
         else:
-            return super(self.__class__,self).firstpassagetime_cdf(x0,A,*args,bc=kwargs.pop('bc',('reflecting','absorbing')),**kwargs)
+            return super(DrivenDoubleWell,self).firstpassagetime_cdf(x0,A,*args,bc=kwargs.pop('bc',('reflecting','absorbing')),**kwargs)
 
     def firstpassagetime_avg(self,x0,*args,**kwargs):
         """
