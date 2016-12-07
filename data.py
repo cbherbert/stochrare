@@ -1,6 +1,5 @@
 import numpy as np
-import os, pickle
-import stochtrans1D
+import os, pickle, warnings
 
 class Database(dict):
     """ The database I use as a cache for first passage time realizations to avoid making the same computations over and over again.
@@ -9,12 +8,17 @@ class Database(dict):
     
     def __init__(self,path):
         """ Automatically read the database on disk if it exists when the object is created """
-        self.path = path
+        self.path = os.path.expanduser(path)
+        path = self.path
         try :
-            with open(self.path,'rb') as f:
-                self.update(pickle.load(f))
-        except :
+            with open(path,'rb') as f:
+                db = pickle.load(f)
+                path = db.path
+                self.update(db)
+        except IOError:
             pass
+        if self.path != path:
+            warnings.warn("The path saved in the database ("+path+") differs from its actual location ("+self.path+"). It might have been moved manually. The old path will be overwritten if you modify the database. Please check that this is the file you intended to use.",ImportWarning)        
 
     def __setitem__(self,key,value):
         """ When adding the result of a computation to the database, automatically save it on disk """
