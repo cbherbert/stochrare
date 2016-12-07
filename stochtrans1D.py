@@ -245,13 +245,13 @@ class OrnsteinUhlenbeck(StochModel):
         super(self.__class__,self).__init__(lambda x,t: theta*(mu-x),D)
         
     
-class DoubleWell(StochModel):
+class DrivenDoubleWell(StochModel):
     """ Double well potential model, possibly including periodic forcing and noise """
 
     default_dt = 0.01
 
     def __init__(self,Famp,omega,Damp):
-        super(self.__class__,self).__init__(lambda x,t: -x*(x**2-1)+Famp*np.sin(omega*t),Damp)
+        super(DrivenDoubleWell,self).__init__(lambda x,t: -x*(x**2-1)+Famp*np.sin(omega*t),Damp)
         self.Famp = Famp
         self.Om   = omega
 
@@ -412,6 +412,11 @@ class DoubleWell(StochModel):
         def fun(Y,t):
             return (Y[0]*(1.-Y[0]**2)+2.*Y[1]+self.Famp*np.sin(self.Om*t),Y[1]*(3.*Y[0]**2-1.))
         return integrate.odeint(fun,(x0,p0),args,**kwargs)
+
+class DoubleWell(DrivenDoubleWell):
+    """ The classical double-well potential model with noise """
+    def __init__(self,Damp):
+        super(DoubleWell,self).__init__(0.0,0.0,Damp)
 
 class StochSaddleNode(StochModel):
     """ This is a very simple model for loss of stability with noise.
