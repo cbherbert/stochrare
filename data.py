@@ -37,14 +37,29 @@ class Database(dict):
         except:
             pass
 
+
 class FirstPassageData(Database):
     """ Specializing the above class for our specific use case: computing and storing first passage time for stochastic models.
     In particular the keys are specialized for our physical/numerical parameters. 
     It is very possible that this class breaks many features of the dictionary class. Use at your own risks... """
 
-    def __init__(self,path="~/data/stochtrans/tau.db"):
-        self.path = os.path.expanduser(path)        
-        Database.__init__(self,self.path)
+    def __init__(self,model,path="~/data/stochtrans/tau.db"):
+        self.path = os.path.expanduser(path)
+        path = self.path
+        try:
+            with open(path,'rb') as f:
+                db = pickle.load(f)
+                path = db.path
+                self.model = db.model
+                self.update(db)
+        except IOError:
+            self.model = model
+            pass
+        if self.path != path:
+            warnings.warn("The path saved in the database ("+path+") differs from its actual location ("+self.path+"). It might have been moved manually. The old path will be overwritten if you modify the database. Please check that this is the file you intended to use.",ImportWarning)
+        if self.model != model:
+            raise ImportWarning("The model used to generate the database you are trying to access apparently differs from the one you are requesting. Please check. ")
+
 
     def __getitem__(self,key):
         """ We assume that keys are tuples of the form (epsilon,t0,x0,dt,M,n) where n is the number of samples we want.
@@ -55,7 +70,7 @@ class FirstPassageData(Database):
             eps,t0,x0,dt,M, n = key
             data = Database.__getitem__(self,key[:-1])
             if len(data) < n:
-                data_new = stochtrans1D.StochSaddleNode(eps).escapetime_sample(x0,t0,M,dt=dt,ntraj=n-len(data))
+                data_new = self.model(eps).escapetime_sample(x0,t0,M,dt=dt,ntraj=n-len(data))
                 data = np.concatenate((data,data_new))
                 self.__setitem__(key[:-1],data)
 
