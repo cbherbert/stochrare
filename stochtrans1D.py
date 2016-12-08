@@ -194,6 +194,52 @@ class StochModel(object):
             t += dt
         return t
 
+    def escapetime_sample(self,x0,t0,A,**kwargs):
+        """ Computes realizations of the first passage time, defined by $\tau_A = inf{t>t0 | x(t)>A}$, using direct Monte-Carlo simulations.
+        This method can be overwritten by subclasses to call compiled code for better performance.
+        """
+        ntraj   = kwargs.pop('ntraj',100000)
+        dtype   = kwargs.pop('dtype',np.float32)
+        return np.array([firstpassagetime(x0,t0,A,**kwargs) for n in xrange(ntraj)],dtype=dtype)
+
+    def escapetime_avg(self,x0,t0,A,**kwargs):
+        """ Compute the average escape time for given initial condition (x0,t0) and threshold A """
+        return np.mean(self.escapetime_sample(x0,t0,A,**kwargs))
+
+    @classmethod
+    def escapetime_pdf(self,samples,**kwargs):
+        """ Compute the probability distribution function of the first-passage time based on the input samples """
+        if (kwargs.get('standardize',False)):
+            samples -= np.mean(samples)
+            samples /= np.std(samples)
+        hist, rc = np.histogram(samples,bins=kwargs.get('bins','doane'),density=True)
+        rc = rc[:-1] + 0.5*(rc[1]-rc[0])
+        return rc, hist
+
+    @classmethod
+    def escapetime_pdfplot(self,*args,**kwargs):
+        """ Plot previously computed pdf of first passage time """
+        fig = plt.figure()
+        ax = plt.axes()
+        lines = []
+        for t,p in args:
+            lines += ax.plot(t,p,linewidth=2)
+
+        ax.grid()
+        ax.set_xlabel(r'$\tau_M$')
+        ax.set_ylabel(r'$p(\tau_M)$')
+
+        plottitle = kwargs.get('title',"")
+        if plottitle != "":
+            plt.title(plottitle)
+
+        labels = kwargs.get('labels',[])
+        if labels != []:
+            plt.legend(lines,labels,bbox_to_anchor=(1.05, 1),loc=2, borderaxespad=0.)
+
+        plt.show()
+
+
     def firstpassagetime_cdf(self,x0,A,*args,**kwargs):
         """ Computes the CDF of the first passage time, Prob_{x0,t0}[\tau_A<t] by solving the Fokker-Planck equation """
         t0 = kwargs.pop('t0',0.0)
@@ -222,7 +268,7 @@ class StochModel(object):
             Mn += [t0**n + n*integrate.trapz(cdf*times**(n-1),times)]
         return Mn
 
-    
+
 class Wiener(StochModel):
     """ The Wiener process """
     def __init__(self,D=1):
@@ -350,13 +396,13 @@ class DrivenDoubleWell(StochModel):
         """ Computes the CDF of the first passage time, Prob_{x0,t0}[\tau_A<t], either by solving the Fokker-Planck equation, its adjoint, or by using the theoretical solution. """
         src = kwargs.pop('src','FP')
         if src == 'theory':
-            # t = np.array(args)
+            # Poissonian statistics for the first passage time:
+            t = np.array(args)
+            Lambda = 1./(self.firstpassagetime_avg(x0,A,src='theory')[1])
+            G = np.exp(-Lambda*t)
+            P = Lambda*G
             # t = t[t<0]
-            # G = np.exp(-(3./4.)**(2./3.)*(self.D0)**(5./3.)*gammaincc(5./3.,4.*(-t)**1.5/(3.*self.D0))*gamma(5./3.)/(6.*np.pi))
-            # Lambda = (-t)**(1.5)*np.exp(-4.*(-t)**1.5/(3.*self.D0))/(3*np.pi)
-            # P = Lambda*G            
-            # return t,{'cdf': 1.0-G, 'G': G, 'pdf': P, 'lambda': Lambda}.get(kwargs.get('out','G'))
-            pass
+            return t,{'cdf': 1.0-G, 'G': G, 'pdf': P, 'lambda': Lambda}.get(kwargs.get('out','G'))
         elif src == 'adjoint':
             t0 = kwargs.pop('t0',0.0)
             # The upper boundary of the integration domain should always be A
@@ -489,30 +535,6 @@ class StochSaddleNode(StochModel):
             else:
                 sample_cache = sample
         return sample_cache[:ntraj]
-    
-
-    def escapetime_avg(self,x0,t0,A,**kwargs):
-        """ Compute the average escape time for given initial condition (x0,t0) and threshold A """
-        return np.mean(self.escapetime_sample(x0,t0,A,**kwargs))
-    
-    def escapetime_pdf(self,x0,t0,A,**kwargs):
-        """ Compute the probability distribution function of the escape time with given initial conditions (t0,x0) and a given threshold A """
-        samples = self.escapetime_sample(x0,t0,A,**kwargs)
-        if (kwargs.get('standardize',False)):
-            samples -= np.mean(samples)
-            samples /= np.std(samples)
-        hist, rc = np.histogram(samples,bins=kwargs.get('bins','doane'),density=True)
-        rc = rc[:-1] + 0.5*(rc[1]-rc[0])
-        return rc, hist
-    
-    def escapetime_pdf_plot(self,x0,t0,A,**kwargs):        
-        fig = plt.figure()
-        ax = plt.axes()
-        ax.set_xlabel('$t_\star$')
-        ax.set_ylabel('$p(t_\star)$')
-        plt.grid()
-        pdf_line, = ax.plot(*self.escapetime_pdf(x0,t0,A,**kwargs),linewidth=2)
-        plt.show()
 
 
     def fpintegrate(self,t0,T,**kwargs):
