@@ -228,6 +228,7 @@ class StochModel(object):
         ax.grid()
         ax.set_xlabel(r'$\tau_M$')
         ax.set_ylabel(r'$p(\tau_M)$')
+        ax.set_yscale(kwargs.get('yscale','linear'))
 
         plottitle = kwargs.get('title',"")
         if plottitle != "":
