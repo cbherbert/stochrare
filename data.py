@@ -1,11 +1,13 @@
 import numpy as np
 import os, pickle, warnings
+import scipy.integrate as integrate
+from scipy.interpolate import interp1d
 
 class Database(dict):
-    """ The database I use as a cache for first passage time realizations to avoid making the same computations over and over again.
-    Right now this is just a dictionary with automatic io, using pickle, for disk storage. 
+    """ A simple generic database class I use to cache the results from computations on simple stochastic systems to avoid making the same computations over and over again.
+    Right now this is just a dictionary with automatic io, using pickle, for disk storage.
     In the long run, there may be better structures to represent the data, such as dbm, pandas or xarray, or even sqlite3. """
-    
+
     def __init__(self,path):
         """ Automatically read the database on disk if it exists when the object is created """
         self.path = os.path.expanduser(path)
@@ -18,7 +20,7 @@ class Database(dict):
         except IOError:
             pass
         if self.path != path:
-            warnings.warn("The path saved in the database ("+path+") differs from its actual location ("+self.path+"). It might have been moved manually. The old path will be overwritten if you modify the database. Please check that this is the file you intended to use.",ImportWarning)        
+            warnings.warn("The path saved in the database ("+path+") differs from its actual location ("+self.path+"). It might have been moved manually. The old path will be overwritten if you modify the database. Please check that this is the file you intended to use.",ImportWarning)
 
     def __setitem__(self,key,value):
         """ When adding the result of a computation to the database, automatically save it on disk """
@@ -28,7 +30,7 @@ class Database(dict):
 
     def __missing__(self,key):
         """ When requesting parameters for which no realization is stored in the database, we simply return an empty array """
-        return np.array([])                    
+        return np.array([])
 
     def purge(self):
         """ Delete the database stored on disk """
@@ -38,9 +40,26 @@ class Database(dict):
             pass
 
 
+class FirstPassageFP(Database):
+    """
+    Specializing the above class for storing results from numerical integration of the adjoint FP equation.
+    Keys are of the form (eps,x0,M). So far, I am NOT storing the computational parameters used to solve the FP equation numerically.
+    Items correspond to (t,G) where the function G(x0,t) is the probability that a particle initially at x0 has not exited yet.
+    """
+    def __init__(self,path="fpadj.db"):
+        Database.__init__(self,path)
+
+    def get_avg(self,eps,M,x0,**kwargs):
+        """ Compute and return the mean first passage time based on the solution of the adjoint FP equation stored """
+        def interp_int(G,t):
+            logG = interp1d(t,np.log(G),fill_value="extrapolate")
+            return integrate.quad(lambda x: np.exp(logG(x)),0.0,np.inf)[0]
+        integ_method = {True: interp_int, False: integrate.trapz}.get(kwargs.pop('interpolate',True))
+        return integ_method(*(self.__getitem__((eps,x0,M))[::-1]))
+
 class FirstPassageData(Database):
-    """ Specializing the above class for our specific use case: computing and storing first passage time for stochastic models.
-    In particular the keys are specialized for our physical/numerical parameters. 
+    """ Specializing the above class for our specific use case: computing and storing first passage time realizations for stochastic models.
+    In particular the keys are specialized for our physical/numerical parameters.
     It is very possible that this class breaks many features of the dictionary class. Use at your own risks... """
 
     def __init__(self,model,path="~/data/stochtrans/tau.db"):
@@ -110,12 +129,10 @@ class FirstPassageData(Database):
             return self.__getitem__((eps,t0,x0,dt,M,kwargs.get('n')))
         else:
             return self.__getitem__((eps,t0,x0,dt,M))
-    
+
     def show_eps(self):
         """ Return the list of noise amplitudes stored in the database """
         if self == {}:
             return set()
         else:
             return set(zip(*self.keys())[0])
-    
-    
