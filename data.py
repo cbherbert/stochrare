@@ -25,12 +25,16 @@ class Database(dict):
     def __setitem__(self,key,value):
         """ When adding the result of a computation to the database, automatically save it on disk """
         dict.__setitem__(self,key,value)
-        with open(self.path,'wb') as f:
-            pickle.dump(self,f)
+        self.save()
 
     def __missing__(self,key):
         """ When requesting parameters for which no realization is stored in the database, we simply return an empty array """
         return np.array([])
+
+    def save(self):
+        """ Save the object on disk"""
+        with open(self.path,'wb') as f:
+            pickle.dump(self,f)
 
     def purge(self):
         """ Delete the database stored on disk """
