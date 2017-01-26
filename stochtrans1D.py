@@ -587,8 +587,11 @@ class StochSaddleNode(StochModel):
         if kwargs.get('EK',False):
             t = np.array(args)
             t = t[t<0]
-            G = np.exp(-(3./4.)**(2./3.)*(self.D0)**(5./3.)*gammaincc(5./3.,4.*(-t)**1.5/(3.*self.D0))*gamma(5./3.)/(6.*np.pi))
-            Lambda = (-t)**(1.5)*np.exp(-4.*(-t)**1.5/(3.*self.D0))/(3*np.pi)
+            # this seems to be wrong: I guess I used V(a,b) instead of V''(a,b) in the prefactor
+            #G = np.exp(-(3./4.)**(2./3.)*(self.D0)**(5./3.)*gammaincc(5./3.,4.*(-t)**1.5/(3.*self.D0))*gamma(5./3.)/(6.*np.pi))
+            #Lambda = (-t)**(1.5)*np.exp(-4.*(-t)**1.5/(3.*self.D0))/(3*np.pi)
+            G = np.exp(-self.D0/(2*np.pi)*np.exp(-4.*(-t)**1.5/(3.*self.D0)))
+            Lambda = np.sqrt(-t)*np.exp(-4.*(-t)**1.5/(3.*self.D0))/np.pi
             P = Lambda*G
             return t,{'cdf': 1.0-G, 'G': G, 'pdf': P, 'lambda': Lambda}.get(kwargs.get('out','G'))
         else:
