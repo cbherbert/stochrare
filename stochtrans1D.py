@@ -599,9 +599,66 @@ class StochSaddleNode(StochModel):
 
     @classmethod
     def instanton(cls,x0,p0,*args,**kwargs):
+        """
+        Numerical integration of the equations of motion for instantons.
+        x0 and p0 are the initial conditions.
+        Return the instanton trajectory (t,x).
+        """
         def fun(Y,t):
-            return (Y[0]**2+2.*Y[1]+t,-2.*Y[0]*Y[1])
-        return integrate.odeint(fun,(x0,p0),args,**kwargs)
+            """Equations of motion for instanton dynamics."""
+            return [Y[0]**2+2.*Y[1]+t,-2.*Y[0]*Y[1]]
+        def jac(Y,t):
+            """Jacobian of instanton dynamics."""
+            return [[2*Y[0],2.0],[-2.0*Y[1],-2.0*Y[0]]]
+        def fun_log(Y,t):
+            """Vector field with the change of variable q=ln(p)."""
+            return [Y[0]**2+2.*np.exp(Y[1])+t,-2.*Y[0]]
+        def jac_log(Y,t):
+            """Jacobian of the vector field with the change of variable q=ln(p)."""
+            return [[2.*Y[0],2.*np.exp(Y[1])],[-2.0,0.0]]
+        def rev(f):
+            return lambda t,Y: f(Y,t)
+        def filt_fun(t,x):
+            filt = (x>100.0).nonzero()[0]
+            if len(filt) >0:
+                maxind = filt[0]
+            else:
+                maxind = -1
+            return t[:maxind], x[:maxind]
+        solver    = kwargs.pop('solver','odeint')
+        scheme    = kwargs.pop('integrator','dopri5')
+        var       = kwargs.pop('change_vars','None')
+        filt_traj = kwargs.pop('filter_traj',False)
+        times = np.sort(args)
+        if var == 'log':
+            fun = fun_log
+            jac = jac_log
+        if solver == 'odeint':
+            x = integrate.odeint(fun,(x0,p0),times,**kwargs)[:,0]
+            return filt_fun(times,x) if filt_traj else (times,x)
+        elif solver == 'odeclass':
+            integ = integrate.ode(rev(fun),jac=rev(jac)).set_integrator(scheme,**kwargs)
+            integ.set_initial_value([x0,p0],times[0])
+            return times,[integ.integrate(t)[0] for t in times]
+
+    @classmethod
+    def instanton_cond(cls,x0,t0,T,M,**kwargs):
+        """
+        Compute the instanton given by the initial condition (x0,t0), the duration T and the final position M.
+        """
+        def duration_solve(q0,t0,T,M):
+            times = np.arange(t0,t0+1.5*T,0.05)
+            t,x = cls.instanton(-np.sqrt(np.abs(t0)),q0,*times,solver='odeclass',change_vars='log')
+            return t[x>=M][0]-t0-T
+        def position_solve(q0,t0,T,M):
+            t,x = cls.instanton(-np.sqrt(np.abs(t0)),q0,t0,t0+T,solver='odeclass',change_vars='log')
+            return x[-1]-M
+        fun   = {'duration': duration_solve, 'position': position_solve}.get(kwargs.pop('method','position'))
+        qmin  = kwargs.pop('qmin',-1000.0)
+        qmax  = kwargs.pop('qmax',-1.0)
+        qsol  = brentq(fun,qmin,qmax,args=(t0,T,M))
+        times = kwargs.pop('times',np.linspace(t0,t0+T,num=kwargs.pop('npts',100)))
+        return cls.instanton(x0,qsol,*times,solver='odeclass',change_vars='log',**kwargs)
 
 class DynSaddleNode(StochSaddleNode):
     """ This is just the deterministic version of the dynamical saddle-node bifurcation dx/dt = x^2+t, for which we have an analytic solution """
