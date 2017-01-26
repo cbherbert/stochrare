@@ -49,6 +49,35 @@ class StochModel(object):
             x = x[np.isfinite(x)]
         return tarray,x
 
+    def traj_cond_gen(self,x0,t0,tau,M,**kwargs):
+        """Generate trajectories conditioned on the first-passage time tau at value M.
+        Initial conditions are (x0,t0).
+        Optional keyword arguments:
+        - dt     -- integration timestep (default is self.default_dt)
+        - ttol   -- first-passage time tolerance (default is 1% of trajectory duration)
+        - num    -- number of trajectories generated (default is 10)
+        - interp -- interpolate to generate unifomly sampled trajectories
+        - npts   -- number of points for interpolated trajectories (default (tau-t0)/dt)
+        """
+        dt      = kwargs.get('dt',self.default_dt)
+        tau_tol = kwargs.get('ttol',0.01*np.abs(tau-t0))
+        num     = kwargs.pop('num',10)
+        interp  = kwargs.pop('interp',False)
+        npts    = kwargs.pop('npts',np.abs(tau-t0)/dt)
+        while (num>0):
+            x = [x0]
+            t = [t0]
+            while (x[-1]<=M and t[-1]<=tau):
+                x += [ x[-1] + self.increment(x[-1],t[-1],dt=dt)]
+                t += [ t[-1] + dt ]
+            if (x[-1]>M and np.abs(t[-1]-tau)<tau_tol):
+                num -= 1
+                if interp:
+                   fun = interp1d(t,x,fill_value='extrapolate')
+                   t = np.linspace(t0,tau,num=npts)
+                   x = fun(t)
+                yield t,x
+
     @classmethod
     def trajectoryplot(cls,*args,**kwargs):
         """ Plot previously computed trajectories """
