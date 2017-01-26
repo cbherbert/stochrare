@@ -463,6 +463,18 @@ class DrivenDoubleWell(StochModel):
             ifun = interp1d(y,arr.cumsum())
             # now compute the outer integral by chunks
             return np.concatenate((badargs,args)),np.array(len(badargs)*[0.]+[exppot_int(*bds,sign=1,fun=ifun) for bds in [(x0,args[0])]+zip(args[:-1],args[1:])]).cumsum()/self.D0
+        elif src == 'theory2':
+            def exppot(y,sign=-1,fun=lambda z: 1):
+                return np.exp(sign*self.potential(y,0)/self.D0)*fun(y)
+            # compute the inner integral and interpolate:
+            z = np.linspace(-10.0,args[-1])
+            iarr = integrate.cumtrapz(exppot(z),z,initial=0)
+            ifun = interp1d(z,iarr)
+            # now compute the outer integral by chunks
+            y = np.linspace(x0,args[-1])
+            oarr = integrate.cumtrapz(exppot(y,sign=1,fun=ifun),y,initial=0)/self.D0
+            ofun = interp1d(y,oarr)
+            return np.concatenate((badargs,args)),np.concatenate((len(badargs)*[0.],ofun(args)))
         elif src == 'adjoint':
             # here we need to solve the adjoint FP equation for each threshold value, so this is much more expensive than the theoretical formula of course.
             def interp_int(G,t):
