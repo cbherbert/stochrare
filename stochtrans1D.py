@@ -690,6 +690,27 @@ class StochSaddleNode(StochModel):
             return {'cdf': (t,1.0-G), 'G': (t,G), 'pdf': ((t-avg)/std,std*P), 'lambda': (t,Lambda)}.get(kwargs.get('out','G'))
         else:
             return super(self.__class__,self).firstpassagetime_cdf(x0,A,*args,**kwargs)
+    def firstpassagetime_avg(self,x0,*args,**kwargs):
+        """
+        Compute mean first-passage time with Eyring-Kramers ansatz or using the superclass general techniques.
+        Caveat: the Eyring-Kramers formula does not depend on the threshold value M ! The function prototype with variable number of arguments is kept for compatibility purposes, but it only makes sense to call it with one argument M.
+        """
+        if kwargs.get('src','FP')=='EK':
+            def efun(u,n):
+                return u**(2.*n/3.)*np.exp(-u)*np.exp(-self.D0/(2*np.pi)*np.exp(-u))
+            # args have to be sorted in increasing order:
+            args = np.sort(args)
+            # remove the values of args which are <= x0:
+            badargs,args = (args[args<=x0],args[args>x0])
+            t0   = kwargs.pop('t0',0.0)
+            n    = kwargs.pop('order',1)
+            k = (0.75*self.D0)**(2./3.)
+            tau = (-1)**n*self.D0/(2.*np.pi)*k**n*integrate.quad(efun,0.,min((-t0/k)**1.5,100.0),args=(n,))[0]/(1.0-np.exp(-self.D0/(2.*np.pi)))
+            return np.concatenate((badargs,args)),np.array(len(badargs)*[0.]+len(args)*[tau])
+        #elif kwargs.get('src','FP')=='quad':
+        #    return super(self.__class__,self).firstpassagetime_avg(x0,*args,EK='quad',**kwargs)
+        else:
+            return super(self.__class__,self).firstpassagetime_avg(x0,*args,**kwargs)
 
     @classmethod
     def instanton(cls,x0,p0,*args,**kwargs):
