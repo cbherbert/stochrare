@@ -55,11 +55,20 @@ class FirstPassageFP(Database):
 
     def get_avg(self,eps,M,x0,**kwargs):
         """ Compute and return the mean first passage time based on the solution of the adjoint FP equation stored """
-        def interp_int(G,t):
-            logG = interp1d(t,np.log(G),fill_value="extrapolate")
-            return integrate.quad(lambda x: np.exp(logG(x)),0.0,np.inf)[0]
-        integ_method = {True: interp_int, False: integrate.trapz}.get(kwargs.pop('interpolate',True))
-        return integ_method(*(self.__getitem__((eps,x0,M))[::-1]))
+        t0     = kwargs.pop('t0',0.0)
+        n      = kwargs.pop('order',1)
+        interp = kwargs.pop('interpolate',True)
+        method = kwargs.pop('method','cdf')
+        t,G = self.__getitem__((eps,x0,M))
+        if method == 'cdf':
+            if interp:
+                logG = interp1d(t,np.log(G),fill_value="extrapolate")
+                return t0**n+n*integrate.quad(lambda x: x**(n-1)*np.exp(logG(x)),t0,np.inf)[0]
+            else:
+                return t0**n+n*integrate.trapz(t**(n-1)*G,t)
+        else:
+            t, pdf = (t[1:-1],-edpy.CenteredFD(t).grad(G))
+            return integrate.trapz(t**n*pdf,t)
 
 class FirstPassageData(Database):
     """ Specializing the above class for our specific use case: computing and storing first passage time realizations for stochastic models.
