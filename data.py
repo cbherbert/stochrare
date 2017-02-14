@@ -162,3 +162,12 @@ class FirstPassageData(Database):
             return set()
         else:
             return set(zip(*self.keys())[0])
+
+    def filter_keys(self,**kwargs):
+        """ A flexible way to query the keys stored in the database """
+        def parseopt(data,optlabel,optdict):
+            return (data == optdict.get(optlabel) if optlabel in optdict else True)
+        epslist,t0list,x0list,dtlist,Mlist = np.array(zip(*self.keys()))
+        mask = parseopt(epslist,'eps',kwargs)*parseopt(Mlist,'M',kwargs)*parseopt(t0list,'t0',kwargs)*parseopt(x0list,'x0',kwargs)*parseopt(dtlist,'dt',kwargs)
+        return zip(epslist[mask],t0list[mask],x0list[mask],dtlist[mask],Mlist[mask])
+
