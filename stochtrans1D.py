@@ -79,6 +79,15 @@ class StochModel(object):
                 yield t,x
 
     @classmethod
+    def traj_fpt(self,M,*args):
+        """ Compute the first passage time for each trajectory given as argument """
+        for tt,xx in args:
+            for t,x in zip(tt,xx):
+                if x>M:
+                    yield t
+                    break
+
+    @classmethod
     def trajectoryplot(cls,*args,**kwargs):
         """ Plot previously computed trajectories """
         fig = plt.figure()
