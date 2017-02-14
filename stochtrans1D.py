@@ -674,7 +674,7 @@ class StochSaddleNode(StochModel):
 
     def firstpassagetime_cdf(self,x0,A,*args,**kwargs):
         """ Computes the CDF of the first passage time, Prob_{x0,t0}[\tau_A<t], either by solving the Fokker-Planck equation, or by using the Eyring-Kramers ansatz. """
-        if kwargs.get('EK',False):
+        if kwargs.get('EK',False)==True:
             t = np.array(args)
             t = t[t<0]
             # this seems to be wrong: I guess I used V(a,b) instead of V''(a,b) in the prefactor
@@ -689,7 +689,22 @@ class StochSaddleNode(StochModel):
                 std = np.sqrt(std-avg**2)
             return {'cdf': (t,1.0-G), 'G': (t,G), 'pdf': ((t-avg)/std,std*P), 'lambda': (t,Lambda)}.get(kwargs.get('out','G'))
         else:
-            return super(self.__class__,self).firstpassagetime_cdf(x0,A,*args,**kwargs)
+            if kwargs.get('EK',False)=='quad':
+                t = np.array(args)
+                fixedx0 = kwargs.pop('fixedx0',False)
+                Lambda = np.array([1./self.firstpassagetime_avg((x0 if fixedx0 else -np.sqrt(np.abs(t0))),A,src='theory',t0=t0,**kwargs)[1][0] for t0 in t])
+                G = np.exp(-integrate.cumtrapz(Lambda,t,initial=0))
+                P = Lambda*G
+                avg = 0.0
+                std = 1.0
+                if kwargs.get('standardize',False):
+                    avg = integrate.trapz(t*P,t)
+                    std = integrate.trapz(t**2*P,t)
+                    std = np.sqrt(std-avg**2)
+                return {'cdf': (t,1.0-G), 'G': (t,G), 'pdf': ((t-avg)/std,std*P), 'lambda': (t,Lambda)}.get(kwargs.get('out','G'))
+            else:
+                return super(self.__class__,self).firstpassagetime_cdf(x0,A,*args,**kwargs)
+
     def firstpassagetime_avg(self,x0,*args,**kwargs):
         """
         Compute mean first-passage time with Eyring-Kramers ansatz or using the superclass general techniques.
