@@ -2,6 +2,7 @@ import numpy as np
 import os, pickle, warnings
 import scipy.integrate as integrate
 from scipy.interpolate import interp1d
+import edpy
 
 class Database(dict):
     """ A simple generic database class I use to cache the results from computations on simple stochastic systems to avoid making the same computations over and over again.
@@ -69,6 +70,18 @@ class FirstPassageFP(Database):
         else:
             t, pdf = (t[1:-1],-edpy.CenteredFD(t).grad(G))
             return integrate.trapz(t**n*pdf,t)
+
+    def get_pdf(self,eps,M,x0,**kwargs):
+        """ Compute and return the PDF of the first passage time based on the stored G """
+        time,G = self.__getitem__((eps,x0,M))
+        t, pdf = (time[1:-1],-edpy.CenteredFD(time).grad(G))
+        if kwargs.get('standardize',False):
+            avg = self.get_avg(eps,M,x0,order=1,**kwargs)
+            std = self.get_avg(eps,M,x0,order=2,**kwargs)
+            std = np.sqrt(std-avg**2)
+            return (t-avg)/std,std*pdf
+        else:
+            return t,pdf
 
 class FirstPassageData(Database):
     """ Specializing the above class for our specific use case: computing and storing first passage time realizations for stochastic models.
