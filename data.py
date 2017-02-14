@@ -171,3 +171,29 @@ class FirstPassageData(Database):
         mask = parseopt(epslist,'eps',kwargs)*parseopt(Mlist,'M',kwargs)*parseopt(t0list,'t0',kwargs)*parseopt(x0list,'x0',kwargs)*parseopt(dtlist,'dt',kwargs)
         return zip(epslist[mask],t0list[mask],x0list[mask],dtlist[mask],Mlist[mask])
 
+class TrajectoryData(Database):
+    """ Specialized database for storing realizations of reacting trajectories, indexed by their first-passage time. """
+
+    def __init__(self,model,path="~/data/stochtrans/trajs.db"):
+        self.path = os.path.expanduser(path)
+        path = self.path
+        try:
+            with open(path,'rb') as f:
+                db = pickle.load(f)
+                path = db.path
+                self.model = db.model
+                self.update(db)
+        except IOError:
+            self.model = model
+            pass
+        if self.path != path:
+            warnings.warn("The path saved in the database ("+path+") differs from its actual location ("+self.path+"). It might have been moved manually. The old path will be overwritten if you modify the database. Please check that this is the file you intended to use.",ImportWarning)
+        if self.model != model:
+            raise ImportWarning("The model used to generate the database you are trying to access apparently differs from the one you are requesting. Please check. ")
+
+    def show_eps(self):
+        """ Return the list of noise amplitudes stored in the database """
+        if self == {}:
+            return set()
+        else:
+            return set(zip(*self.keys())[0])
