@@ -262,10 +262,8 @@ class StochModel(object):
     @classmethod
     def escapetime_pdf(self,samples,**kwargs):
         """ Compute the probability distribution function of the first-passage time based on the input samples """
-        if (kwargs.get('standardize',False)):
-            samples -= np.mean(samples)
-            samples /= np.std(samples)
-        hist, rc = np.histogram(samples,bins=kwargs.get('bins','doane'),density=True)
+        avg,std = {True: (np.mean(samples),np.std(samples)), False: (0.,1.0)}.get(kwargs.get('standardize',False))
+        hist, rc = np.histogram((samples-avg)/std,bins=kwargs.get('bins','doane'),density=True)
         rc = rc[:-1] + 0.5*(rc[1]-rc[0])
         return rc, hist
 
