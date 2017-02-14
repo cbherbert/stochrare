@@ -378,6 +378,47 @@ class StochModel(object):
         else:
             pass
 
+
+    def instanton(self,x0,p0,*args,**kwargs):
+        """
+        Numerical integration of the equations of motion for instantons.
+        x0 and p0 are the initial conditions.
+        Return the instanton trajectory (t,x).
+        """
+        def rev(f):
+            return lambda t,Y: f(Y,t)
+        def inverse(f):
+            return lambda Y,t: -f(Y,-t)
+        def filt_fun(t,x):
+            filt = (x>100.0).nonzero()[0]
+            if len(filt) >0:
+                maxind = filt[0]
+            else:
+                maxind = -1
+            return t[:maxind], x[:maxind]
+        solver    = kwargs.pop('solver','odeint')
+        scheme    = kwargs.pop('integrator','dopri5')
+        var       = kwargs.pop('change_vars','None')
+        filt_traj = kwargs.pop('filter_traj',False)
+        back      = kwargs.pop('backwards',False)
+        times = np.sort(args)
+        fun = self._instantoneq
+        jac = self._instantoneq_jac
+        if var == 'log':
+            fun = self._instantoneq_log
+            jac = self._instantoneq_jac_log
+        if back:
+            fun = inverse(fun)
+            jac = inverse(jac)
+        if solver == 'odeint':
+            x = integrate.odeint(fun,(x0,p0),times,**kwargs)[:,0]
+            return filt_fun(times,x) if filt_traj else (times,x)
+        elif solver == 'odeclass':
+            integ = integrate.ode(rev(fun),jac=rev(jac)).set_integrator(scheme,**kwargs)
+            integ.set_initial_value([x0,p0],times[0])
+            return times,[integ.integrate(t)[0] for t in times]
+
+
 class Wiener(StochModel):
     """ The Wiener process """
     def __init__(self,D=1):
@@ -575,10 +616,27 @@ class DrivenDoubleWell(StochModel):
         else:
             pass
 
-    def instanton(self,x0,p0,*args,**kwargs):
-        def fun(Y,t):
-            return (Y[0]*(1.-Y[0]**2)+2.*Y[1]+self.Famp*np.sin(self.Om*t),Y[1]*(3.*Y[0]**2-1.))
-        return integrate.odeint(fun,(x0,p0),args,**kwargs)
+    # def instanton(self,x0,p0,*args,**kwargs):
+    #     def fun(Y,t):
+    #         return (Y[0]*(1.-Y[0]**2)+2.*Y[1]+self.Famp*np.sin(self.Om*t),Y[1]*(3.*Y[0]**2-1.))
+    #     return integrate.odeint(fun,(x0,p0),args,**kwargs)
+
+    def _instantoneq(self,Y,t):
+        """Equations of motion for instanton dynamics."""
+        return np.array([Y[0]*(1.-Y[0]**2)+2.*Y[1]+self.Famp*np.sin(self.Om*t),Y[1]*(3.*Y[0]**2-1.)])
+
+    def _instantoneq_jac(self,Y,t):
+        """Jacobian of instanton dynamics."""
+        return np.array([[1.-3.*Y[0]**2,2.],[6.*Y[1]*Y[0],3.*Y[0]**2-1.]])
+
+    def _instantoneq_log(self,Y,t):
+        """Vector field with the change of variable q=ln(p)."""
+        pass
+
+    def _instantoneq_jac_log(self,Y,t):
+        """Jacobian of the vector field with the change of variable q=ln(p)."""
+        pass
+
 
 class DoubleWell(DrivenDoubleWell):
     """ The classical double-well potential model with noise """
