@@ -682,8 +682,12 @@ class StochSaddleNode(StochModel):
             #Lambda = (-t)**(1.5)*np.exp(-4.*(-t)**1.5/(3.*self.D0))/(3*np.pi)
             G = np.exp(-self.D0/(2*np.pi)*np.exp(-4.*(-t)**1.5/(3.*self.D0)))
             Lambda = np.sqrt(-t)*np.exp(-4.*(-t)**1.5/(3.*self.D0))/np.pi
-            P = Lambda*G
-            return t,{'cdf': 1.0-G, 'G': G, 'pdf': P, 'lambda': Lambda}.get(kwargs.get('out','G'))
+            P = Lambda*G/(1.0-np.exp(-self.D0/(2*np.pi)))
+            avg, std = (0.0,1.0)
+            if kwargs.get('standardize',False):
+                avg,std = (integrate.trapz(t*P,t),integrate.trapz(t**2*P,t))
+                std = np.sqrt(std-avg**2)
+            return {'cdf': (t,1.0-G), 'G': (t,G), 'pdf': ((t-avg)/std,std*P), 'lambda': (t,Lambda)}.get(kwargs.get('out','G'))
         else:
             return super(self.__class__,self).firstpassagetime_cdf(x0,A,*args,**kwargs)
 
