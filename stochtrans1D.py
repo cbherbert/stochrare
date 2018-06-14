@@ -806,28 +806,33 @@ class StochSaddleNode(StochModel):
             return [[2.*Y[0],2.*np.exp(Y[1])],[-2.0,0.0]]
         def rev(f):
             return lambda t,Y: f(Y,t)
-        def filt_fun(t,x):
+        def filt_fun(t,x,p):
             filt = (x>100.0).nonzero()[0]
             if len(filt) >0:
                 maxind = filt[0]
             else:
                 maxind = -1
-            return t[:maxind], x[:maxind]
+            return t[:maxind], x[:maxind], p[:maxind]
         solver    = kwargs.pop('solver','odeint')
         scheme    = kwargs.pop('integrator','dopri5')
         var       = kwargs.pop('change_vars','None')
         filt_traj = kwargs.pop('filter_traj',False)
+        pmask     = kwargs.pop('retp',False)+2
         times = np.sort(args)
         if var == 'log':
             fun = fun_log
             jac = jac_log
         if solver == 'odeint':
-            x = integrate.odeint(fun,(x0,p0),times,**kwargs)[:,0]
-            return filt_fun(times,x) if filt_traj else (times,x)
+            x,p = integrate.odeint(fun,(x0,p0),times,**kwargs).T
+            if var == 'log': p = np.exp(p)
+            return (filt_fun(times,x,p) if filt_traj else (times,x,p))[:pmask]
         elif solver == 'odeclass':
             integ = integrate.ode(rev(fun),jac=rev(jac)).set_integrator(scheme,**kwargs)
             integ.set_initial_value([x0,p0],times[0])
-            return times,[integ.integrate(t)[0] for t in times]
+            x,p = map(np.array,zip(*[integ.integrate(t) for t in times]))
+            if var == 'log': p = np.exp(p)
+            return (times,x,p)[:pmask]
+            #return ((times,)+tuple(map(np.array,zip(*[integ.integrate(t) for t in times]))))[:pmask]
 
     @classmethod
     def instanton_cond(cls,x0,t0,T,M,**kwargs):
