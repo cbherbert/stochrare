@@ -28,7 +28,7 @@ class StochModel(object):
     def increment(self,x,t,**kwargs):
         """ Return F(x_t,t)dt + sqrt(2*D0)dW_t """
         dt = kwargs.get('dt',self.default_dt)
-        return self.F(x,t) * dt + np.sqrt(2*self.D0*dt)*np.random.normal(0.0,1.0)
+        return self.F(x,t) * dt + np.sqrt(2.0*self.D0*dt)*np.random.normal(0.0,1.0)
 
     def time_reversal(self):
         """ Apply time reversal and return the new model """
@@ -38,9 +38,9 @@ class StochModel(object):
         """ Integrate a trajectory with given initial condition (t0,x0) """
         x      = [x0]
         dt     = kwargs.get('dt',self.default_dt) # Time step
-        time   = kwargs.get('T',10)   # Total integration time
+        time   = kwargs.get('T',10.0)   # Total integration time
         if dt < 0: time=-time
-        tarray = np.linspace(t0,t0+time,num=time/dt+1)
+        tarray = np.linspace(t0,t0+time,num=np.floor(time/dt)+1)
         for t in tarray[1:]:
             x += [ x[-1] + self.increment(x[-1],t,dt=dt)]
         x = np.array(x)
