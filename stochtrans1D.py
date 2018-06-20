@@ -853,6 +853,16 @@ class StochSaddleNode(StochModel):
         times = kwargs.pop('times',np.linspace(t0,t0+T,num=kwargs.pop('npts',100)))
         return cls.instanton(x0,qsol,*times,solver='odeclass',change_vars='log',**kwargs)
 
+    @classmethod
+    def action(cls,*args):
+        """
+        Compute the action for all the trajectories given as arguments
+        """
+        for t,x in args:
+            xdot = edpy.CenteredFD(t).grad(x)
+            p = 0.5*(xdot-x[1:-1]**2-t[1:-1])
+            yield integrate.trapz(p**2,t[1:-1])
+
 class DynSaddleNode(StochSaddleNode):
     """ This is just the deterministic version of the dynamical saddle-node bifurcation dx/dt = x^2+t, for which we have an analytic solution """
 
