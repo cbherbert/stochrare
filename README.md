@@ -1,7 +1,16 @@
-# stochtrans
+# stochpy
 
-This repository contains pedagogical Python code with the purpose of illustrating some aspects of metastability or loss of stability problems. 
-In particular, we focus on the role of noise on such transitions.
-For simplicity, the code here only considers very simple 1D models, such as a double well potential or a saddle-node bifurcation.
+This Python package aims at providing tools to study stochastic processes:
+- numerical integration of SDEs
+- numerical solver for the Fokker-Planck equations
+- first-passage time computation
+- instanton computation
+- rare event algorithms (coming soon)
 
-I shall add later Python notebooks making use of this code, and references to the relevant litterature.
+For now the code is restricted to 1D processes, which makes it essentially useful for tests and pedagogical purposes, but this should change soon.
+Sub-packages shall be added for specific models of particular interest, such as a double well potential or a saddle-node bifurcation.
+
+In the *demo* directory, I will put Jupyter notebooks illustrating the features of the package, in particular metastability or loss of stability problem and noise-induced transitions.
+These notebooks will include references to the relevant litterature.
+
+The package may also contain code which could be of interest to study deterministic dynamical systems, although this is not the primary goal.
