@@ -9,7 +9,7 @@ from scipy.interpolate import interp1d
 from scipy.optimize import brentq
 from .. import edpy, data
 
-class StochModel(object):
+class StochModel1D(object):
     """ The generic class from which all the models I consider derive.
         It corresponds to the family of 1D SDEs dx_t = F(x_t,t)dt + sqrt(2*D0)dW_t """
 
@@ -39,7 +39,7 @@ class StochModel(object):
 
     def time_reversal(self):
         """ Apply time reversal and return the new model """
-        return StochModel_T(lambda x, t: -self.F(x, -t), self.D0)
+        return StochModel1D_T(lambda x, t: -self.F(x, -t), self.D0)
 
     def trajectory(self, x0, t0, **kwargs):
         """ Integrate a trajectory with given initial condition (t0,x0) """
@@ -457,10 +457,10 @@ class StochModel(object):
             return times, [integ.integrate(t)[0] for t in times]
 
 
-class Wiener(StochModel):
-    """ The Wiener process """
+class Wiener1D(StochModel1D):
+    """ The 1D Wiener process """
     def __init__(self, D=1):
-        super(self.__class__, self).__init__(lambda x, t: 0, D)
+        super(Wiener1D, self).__init__(lambda x, t: 0, D)
 
     def potential(self, X, t):
         """
@@ -476,14 +476,14 @@ class Wiener(StochModel):
         return np.exp(-X**2.0/(4.0*self.D0*t))/np.sqrt(4.0*np.pi*self.D0*t)
 
 
-class OrnsteinUhlenbeck(StochModel):
-    """ The Ornstein-Uhlenbeck model """
+class OrnsteinUhlenbeck1D(StochModel1D):
+    """ The 1D Ornstein-Uhlenbeck model """
     def __init__(self, mu, theta, D):
-        super(self.__class__, self).__init__(lambda x, t: theta*(mu-x), D)
+        super(OrnsteinUhlenbeck1D, self).__init__(lambda x, t: theta*(mu-x), D)
 
 
-class StochModel_T(StochModel):
+class StochModel1D_T(StochModel1D):
     """ Time reversal of a given model """
     def trajectory(self, x0, t0, **kwargs):
-        t, x = super(self.__class__, self).trajectory(x0, t0, **kwargs)
+        t, x = super(StochModel1D_T, self).trajectory(x0, t0, **kwargs)
         return 2*t[0]-t, x
