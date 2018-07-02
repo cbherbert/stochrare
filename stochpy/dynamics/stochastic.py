@@ -4,6 +4,9 @@ Generic class for stochastic processes in arbitrary dimensions
 import numpy as np
 
 class StochModel(object):
+    """
+    Generic class for stochastic processes in arbitrary dimensions
+    """
 
     default_dt = 0.1
 
@@ -52,7 +55,7 @@ class StochModel(object):
         t = t0
         dt = kwargs.get('dt', self.default_dt) # Time step
         obs = kwargs.get('observable', lambda x: x)
-        for step in xrange(nsteps):
+        for _ in xrange(nsteps):
             t = t + dt
             x = x + self.increment(x, t, dt=dt)
             yield t, obs(x)
@@ -61,7 +64,7 @@ class StochModel(object):
         """
         Compute the sample mean of a time dependent observable
         """
-        gens = [self.generator(x0, t0, nsteps, **kwargs) for n in xrange(nsamples)]
+        gens = [self.generator(x0, t0, nsteps, **kwargs) for _ in xrange(nsamples)]
         while True:
             time, obs = zip(*[next(gen) for gen in gens])
             yield np.average(time, axis=0), np.average(obs, axis=0)
@@ -71,7 +74,8 @@ class Wiener(StochModel):
     def __init__(self, D=1):
         super(Wiener, self).__init__(lambda x, t: 0, D)
 
-    def potential(self, X, t):
+    @classmethod
+    def potential(cls, X, t):
         """
         Useless (and potentially source of errors) to call the general potential routine
         since it is trivially zero here
