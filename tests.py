@@ -18,7 +18,7 @@ class TestPotential(unittest.TestCase):
 
 class TestRareEvents(unittest.TestCase):
     def test_blockmaximum(self):
-        data = np.random.random(100)
+        data = np.random.random(101)
         data[20] = 2.0
         data[69] = 3.5
         self.assertEqual(list(ts.blockmaximum(data, 2, mode='proba')),

@@ -50,7 +50,7 @@ def residencetimes(x, threshold):
     return transtimes[1:]-transtimes[:-1]
 
 
-def blockmaximum(traj, nblocks, mode='proba'):
+def blockmaximum(traj, nblocks, mode='proba', **kwargs):
     """
     Generate pairs (a, p(a)) (mode='proba') or (a,r(a)) (mode='returntime'),
     where p(a) is the probability to reach a and r(a) the corresponding return time (see below).
@@ -70,8 +70,11 @@ def blockmaximum(traj, nblocks, mode='proba'):
                correlation time of the timeseries, but we also want as many blocks as possible.
     - mode: 'proba' (default) or 'returntime': determine whether to return probability
             or return time of the event X_t > a.
+    - time: ndarray, sampling times (default is just 0,1,2,...)
     """
+    time = kwargs.get('time', np.arange(len(traj)))
+    trajlen = float(time[-1]-time[0])
     blocklen = len(traj)/nblocks
     blockmax = [np.max(traj[k*blocklen:(k+1)*blocklen]) for k in range(nblocks)]
     for cnt, maxi in enumerate(np.sort(blockmax)[::-1], 1):
-        yield maxi, float(cnt)/float(nblocks) if mode == 'proba' else float(len(traj))/float(cnt)
+        yield maxi, float(cnt)/float(nblocks) if mode == 'proba' else trajlen/float(cnt)
