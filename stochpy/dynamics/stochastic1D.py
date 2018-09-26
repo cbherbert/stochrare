@@ -99,9 +99,9 @@ class StochModel1D(object):
     def trajectoryplot(cls, *args, **kwargs):
         """ Plot previously computed trajectories """
         fig = plt.figure()
-        ax  = plt.axes()
+        ax = plt.axes()
         lines = []
-        for t,x in args:
+        for t, x in args:
             lines += ax.plot(t, x)
 
         ax.grid()
