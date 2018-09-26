@@ -10,8 +10,11 @@ from scipy.optimize import brentq
 from .. import edpy, data
 
 class StochModel1D(object):
-    """ The generic class from which all the models I consider derive.
-        It corresponds to the family of 1D SDEs dx_t = F(x_t,t)dt + sqrt(2*D0)dW_t """
+    """
+    The generic class from which all the models I consider derive.
+    It corresponds to the family of 1D SDEs dx_t = F(x_t,t)dt + sqrt(2*D0)dW_t,
+    where F is a time-dependent vector field and W the Wiener process.
+    """
 
     default_dt = 0.1
 
@@ -477,7 +480,10 @@ class Wiener1D(StochModel1D):
 
 
 class OrnsteinUhlenbeck1D(StochModel1D):
-    """ The 1D Ornstein-Uhlenbeck model """
+    """
+    The 1D Ornstein-Uhlenbeck model:
+        dx_t = theta*(mu-x_t)+sqrt(2*D)*dW_t
+    """
     def __init__(self, mu, theta, D):
         super(OrnsteinUhlenbeck1D, self).__init__(lambda x, t: theta*(mu-x), D)
 
