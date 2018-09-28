@@ -56,6 +56,19 @@ class TAMS(object):
         xnew = np.concatenate((xold[told < time], xnew), axis=0)
         return tnew, xnew
 
+    def selectionstep(self, ensemble):
+        """
+        Selection step of the AMS algorithm:
+        Generator returning the trajectories in the ensemble which performed worse,
+        i.e. the trajectories for which the maximum value of the score function
+        over the trajectory is minimum.
+        """
+        # compute the maximum of the score function over each trajectory:
+        levels = np.array([self.getlevel(*traj) for traj in ensemble])
+        # select the trajectory to be killed:
+        kill_ind = levels.argmin()
+        return kill_ind, levels[kill_ind]
+
     def tams_run(self, ntraj, niter, **kwargs):
         """
         Generate trajectories
@@ -72,15 +85,12 @@ class TAMS(object):
                     for _ in xrange(ntraj)]
         weight = 1
         for _ in xrange(niter):
-            # compute the maximum of the score function over each trajectory:
-            levels = np.array([self.getlevel(*traj) for traj in ensemble])
-            # select the trajectory to be killed:
-            kill_ind = levels.argmin()
+            kill_ind, kill_level = self.selectionstep(ensemble)
             yield ensemble[kill_ind], weight
             # select the trajectory on which we clone the killed trajectory
             clone_ind = np.random.choice([i for i in xrange(ntraj) if i != kill_ind])
             # compute the time from which we resample
-            t_resamp, x_resamp = self.getcrossingtime(levels[kill_ind], *ensemble[clone_ind])
+            t_resamp, x_resamp = self.getcrossingtime(kill_level, *ensemble[clone_ind])
             # resample the trajectory
             ensemble[kill_ind] = self.resample(t_resamp, x_resamp, *ensemble[clone_ind], **kwargs)
             # update the weight
