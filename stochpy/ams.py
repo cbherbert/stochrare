@@ -98,9 +98,9 @@ class TAMS(object):
         ensemble = [self.dynamics.trajectory(x0, t0, T=self.duration, **kwargs)
                     for _ in xrange(ntraj)]
         weight = 1
+        # compute the maximum of the score function over each trajectory:
+        levels = np.array([self.getlevel(*traj) for traj in ensemble])
         for _ in xrange(niter):
-            # compute the maximum of the score function over each trajectory:
-            levels = np.array([self.getlevel(*traj) for traj in ensemble])
             cnt = 0
             for cnt, (kill_ind, clone_ind, kill_level) in enumerate(self.selectionstep(levels), 1):
                 yield ensemble[kill_ind], weight
@@ -108,6 +108,7 @@ class TAMS(object):
                 tcross, xcross = self.getcrossingtime(kill_level, *ensemble[clone_ind])
                 # resample the trajectory
                 ensemble[kill_ind] = self.resample(tcross, xcross, *ensemble[clone_ind], **kwargs)
+                levels[kill_ind] = self.getlevel(*ensemble[kill_ind])
             # update the weight
             weight = weight*(1-float(cnt)/ntraj)
         for traj in ensemble:
