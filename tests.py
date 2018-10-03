@@ -41,6 +41,15 @@ class TestAMS(unittest.TestCase):
         algo = ams.TAMS(None, (lambda t, x: x), 10.)
         self.assertEqual(algo.getcrossingtime(1.5, np.arange(100), data), (10, 2.0))
 
+    def test_selectams(self):
+        levels = np.array([0.5, 1.1, 0.2, 0.6, 0.2, 0.5])
+        self.assertEqual(zip(*list(ams.TAMS.selectionstep(levels[:-2], npart=1)))[0], (2, ))
+        self.assertEqual(zip(*list(ams.TAMS.selectionstep(levels, npart=1)))[0], (2, 4))
+        self.assertEqual(zip(*list(ams.TAMS.selectionstep(levels[:-2], npart=2)))[0], (0, 2))
+        self.assertEqual(zip(*list(ams.TAMS.selectionstep(levels[:-1], npart=2)))[0], (0, 2, 4))
+        self.assertEqual(zip(*list(ams.TAMS.selectionstep(levels, npart=2)))[0], (0, 2, 4, 5))
+        self.assertEqual(zip(*list(ams.TAMS.selectionstep(levels, npart=3)))[0], (0, 2, 3, 4, 5))
+
 
 if __name__ == "__main__":
     unittest.main()

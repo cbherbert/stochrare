@@ -56,18 +56,27 @@ class TAMS(object):
         xnew = np.concatenate((xold[told < time], xnew), axis=0)
         return tnew, xnew
 
-    def selectionstep(self, ensemble):
+    @staticmethod
+    def selectionstep(levels, npart=1):
         """
         Selection step of the AMS algorithm:
         Generator returning the trajectories in the ensemble which performed worse,
         i.e. the trajectories for which the maximum value of the score function
         over the trajectory is minimum.
+        - levels: list of levels reached by the ensemble members
+        - npart: the number of levels to select
+                 npart=1 corresponds to the last particle method
+                 Note that one level can correspond to several trajectories in the ensemble.
         """
-        # compute the maximum of the score function over each trajectory:
-        levels = np.array([self.getlevel(*traj) for traj in ensemble])
-        # select the trajectory to be killed:
-        kill_ind = levels.argmin()
-        return kill_ind, levels[kill_ind]
+        kill_threshold = np.unique(levels)[npart-1]
+        # What do we do if npart > len(np.unique(levels)) ? i.e. survivor_pool == []
+        survivor_pool = np.flatnonzero(levels > kill_threshold)
+        # It should be possible to get rid of the following loop using numpy ufuncs:
+        for index, level in enumerate(levels):
+            # select the trajectories to be killed:
+            if level <= kill_threshold:
+                # also select the trajectory on which we clone the killed trajectory
+                yield index, np.random.choice(survivor_pool), level
 
     def tams_run(self, ntraj, niter, **kwargs):
         """
@@ -85,16 +94,17 @@ class TAMS(object):
                     for _ in xrange(ntraj)]
         weight = 1
         for _ in xrange(niter):
-            kill_ind, kill_level = self.selectionstep(ensemble)
-            yield ensemble[kill_ind], weight
-            # select the trajectory on which we clone the killed trajectory
-            clone_ind = np.random.choice([i for i in xrange(ntraj) if i != kill_ind])
-            # compute the time from which we resample
-            t_resamp, x_resamp = self.getcrossingtime(kill_level, *ensemble[clone_ind])
-            # resample the trajectory
-            ensemble[kill_ind] = self.resample(t_resamp, x_resamp, *ensemble[clone_ind], **kwargs)
+            # compute the maximum of the score function over each trajectory:
+            levels = np.array([self.getlevel(*traj) for traj in ensemble])
+            cnt = 0
+            for cnt, (kill_ind, clone_ind, kill_level) in enumerate(self.selectionstep(levels), 1):
+                yield ensemble[kill_ind], weight
+                # compute the time from which we resample
+                tcross, xcross = self.getcrossingtime(kill_level, *ensemble[clone_ind])
+                # resample the trajectory
+                ensemble[kill_ind] = self.resample(tcross, xcross, *ensemble[clone_ind], **kwargs)
             # update the weight
-            weight = weight*(1-1./ntraj)
+            weight = weight*(1-float(cnt)/ntraj)
         for traj in ensemble:
             yield traj, weight
 
