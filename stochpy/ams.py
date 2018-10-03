@@ -84,6 +84,11 @@ class TAMS(object):
         - ntraj: the number of trajectories in the initial ensemble
         - niter: the number of iterations of the algorithm
 
+        The generator yields (trajectory, weight) pairs which allows to compute easily the
+        probability associated to each sampled trajectory.
+        This method yields first the killed trajectories as the algorithm is iterated,
+        then the trajectories in the final ensemble.
+
         Optional arguments can be passed to the "trajectory" method of the dynamics object.
         """
         # For now we fix the initial conditions:
