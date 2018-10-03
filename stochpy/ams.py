@@ -71,12 +71,8 @@ class TAMS(object):
         kill_threshold = np.unique(levels)[npart-1]
         # What do we do if npart > len(np.unique(levels)) ? i.e. survivor_pool == []
         survivor_pool = np.flatnonzero(levels > kill_threshold)
-        # It should be possible to get rid of the following loop using numpy ufuncs:
-        for index, level in enumerate(levels):
-            # select the trajectories to be killed:
-            if level <= kill_threshold:
-                # also select the trajectory on which we clone the killed trajectory
-                yield index, np.random.choice(survivor_pool), level
+        killed_pool = np.flatnonzero(levels <= kill_threshold)
+        return killed_pool, survivor_pool
 
     def tams_run(self, ntraj, niter, **kwargs):
         """
@@ -101,16 +97,17 @@ class TAMS(object):
         # compute the maximum of the score function over each trajectory:
         levels = np.array([self.getlevel(*traj) for traj in ensemble])
         for _ in xrange(niter):
-            cnt = 0
-            for cnt, (kill_ind, clone_ind, kill_level) in enumerate(self.selectionstep(levels), 1):
+            killed_pool, survivor_pool = self.selectionstep(levels)
+            for kill_ind in killed_pool:
                 yield ensemble[kill_ind], weight
                 # compute the time from which we resample
-                tcross, xcross = self.getcrossingtime(kill_level, *ensemble[clone_ind])
+                clone_ind = np.random.choice(survivor_pool)
+                tcross, xcross = self.getcrossingtime(levels[kill_ind], *ensemble[clone_ind])
                 # resample the trajectory
                 ensemble[kill_ind] = self.resample(tcross, xcross, *ensemble[clone_ind], **kwargs)
                 levels[kill_ind] = self.getlevel(*ensemble[kill_ind])
             # update the weight
-            weight = weight*(1-float(cnt)/ntraj)
+            weight = weight*(1-float(len(killed_pool))/ntraj)
         for traj in ensemble:
             yield traj, weight
 
