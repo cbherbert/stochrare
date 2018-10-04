@@ -22,6 +22,9 @@ class TAMS(object):
         self.dynamics = model
         self.score = scorefun
         self.duration = duration
+        self._ensemble = []
+        self._levels = []
+        self._weight = 0
 
     def getcrossingtime(self, level, times, traj):
         """
@@ -74,6 +77,35 @@ class TAMS(object):
         killed_pool = np.flatnonzero(levels <= kill_threshold)
         return killed_pool, survivor_pool
 
+    def mutationstep(self, killed_pool, survivor_pool, **kwargs):
+        """
+        Mutation step for the AMS algorithm
+
+        This is the only method which modifies the state of the ensemble (the TAMS object).
+        """
+        for kill_ind in killed_pool:
+            # compute the time from which we resample
+            clone_ind = np.random.choice(survivor_pool)
+            tcross, xcross = self.getcrossingtime(self._levels[kill_ind],
+                                                  *self._ensemble[clone_ind])
+            # resample the trajectory
+            self._ensemble[kill_ind] = self.resample(tcross, xcross, *self._ensemble[clone_ind],
+                                                     **kwargs)
+            self._levels[kill_ind] = self.getlevel(*self._ensemble[kill_ind])
+        # update the weight
+        self._weight = self._weight*(1-float(len(killed_pool))/len(self._ensemble))
+
+    def initialize_ensemble(self, x0, t0, ntraj, **kwargs):
+        """
+        Generate the initial ensemble.
+        """
+        self._ensemble = [self.dynamics.trajectory(x0, t0, T=self.duration, **kwargs)
+                          for _ in xrange(ntraj)]
+        self._weight = 1
+        # compute the maximum of the score function over each trajectory:
+        self._levels = np.array([self.getlevel(*traj) for traj in self._ensemble])
+
+
     def tams_run(self, ntraj, niter, **kwargs):
         """
         Generate trajectories
@@ -88,28 +120,14 @@ class TAMS(object):
         Optional arguments can be passed to the "trajectory" method of the dynamics object.
         """
         # For now we fix the initial conditions:
-        x0 = 0
-        t0 = 0
-        # generate the initial ensemble:
-        ensemble = [self.dynamics.trajectory(x0, t0, T=self.duration, **kwargs)
-                    for _ in xrange(ntraj)]
-        weight = 1
-        # compute the maximum of the score function over each trajectory:
-        levels = np.array([self.getlevel(*traj) for traj in ensemble])
+        self.initialize_ensemble(0, 0, ntraj, **kwargs)
         for _ in xrange(niter):
-            killed_pool, survivor_pool = self.selectionstep(levels)
+            killed_pool, survivor_pool = self.selectionstep(self._levels)
             for kill_ind in killed_pool:
-                yield ensemble[kill_ind], weight
-                # compute the time from which we resample
-                clone_ind = np.random.choice(survivor_pool)
-                tcross, xcross = self.getcrossingtime(levels[kill_ind], *ensemble[clone_ind])
-                # resample the trajectory
-                ensemble[kill_ind] = self.resample(tcross, xcross, *ensemble[clone_ind], **kwargs)
-                levels[kill_ind] = self.getlevel(*ensemble[kill_ind])
-            # update the weight
-            weight = weight*(1-float(len(killed_pool))/ntraj)
-        for traj in ensemble:
-            yield traj, weight
+                yield self._ensemble[kill_ind], self._weight
+            self.mutationstep(killed_pool, survivor_pool, **kwargs)
+        for traj in self._ensemble:
+            yield traj, self._weight
 
     def tams_returntimes(self, ntraj, niter, **kwargs):
         """
