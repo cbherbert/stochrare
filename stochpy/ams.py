@@ -129,11 +129,35 @@ class TAMS(object):
         for traj in self._ensemble:
             yield traj, self._weight
 
+    def run_resamp(self, ntraj, niter, **kwargs):
+        """
+        Generate trajectories
+        - ntraj: the number of trajectories in the initial ensemble
+        - niter: the number of iterations of the algorithm
+
+        The generator yields (trajectory, weight) pairs which allows to compute easily the
+        probability associated to each sampled trajectory.
+        This method yields first the trajectories in the initial ensemble, then the resampled
+        trajectories as the algorithm is iterated.
+
+        Optional arguments can be passed to the "trajectory" method of the dynamics object.
+        """
+        # For now we fix the initial conditions:
+        self.initialize_ensemble(0, 0, ntraj, **kwargs)
+        for traj in self._ensemble:
+            yield traj, self._weight
+        for _ in xrange(niter):
+            killed_pool, survivor_pool = self.selectionstep(self._levels)
+            self.mutationstep(killed_pool, survivor_pool, **kwargs)
+            for kill_ind in killed_pool:
+                yield self._ensemble[kill_ind], self._weight
+
     def tams_returntimes(self, ntraj, niter, **kwargs):
         """
         Here the observable is the score function itself (temporary only)
         """
-        tamsgen = self.tams_run(ntraj, niter, **kwargs)
+        method = kwargs.get('method', self.tams_run)
+        tamsgen = method(ntraj, niter, **kwargs)
         blockmax = np.array([(self.getlevel(*traj), wght) for traj, wght in tamsgen])
         blockmax[:, 1] = blockmax[:, 1]/np.sum(blockmax[:, 1])
         blockmax = blockmax[blockmax[:, 0].argsort()[::-1]]
