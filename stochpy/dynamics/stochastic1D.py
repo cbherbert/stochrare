@@ -45,20 +45,28 @@ class StochModel1D(object):
         return StochModel1D_T(lambda x, t: -self.F(x, -t), self.D0)
 
     def trajectory(self, x0, t0, **kwargs):
-        """ Integrate a trajectory with given initial condition (t0,x0) """
+        """
+        Integrate a trajectory with given initial condition (t0,x0)
+        Optional arguments:
+        - dt: float, the time step
+        - T: float, the integration time (i.e. the duration of the trajectory)
+        - finite: boolean, whether to filter output to return only finite values (default False)
+        """
+        t = [t0]
         x = [x0]
-        dt = kwargs.get('dt', self.default_dt) # Time step
-        time = kwargs.get('T', 10.0)   # Total integration time
+        dt = kwargs.get('dt', self.default_dt)
+        time = kwargs.get('T', 10.0)
         if dt < 0:
             time = -time
-        tarray = np.linspace(t0, t0+time, num=np.floor(time/dt)+1)
-        for t in tarray[1:]:
-            x += [x[-1] + self.increment(x[-1], t, dt=dt)]
+        while t[-1] < t0+time:
+            t += [t[-1] + dt]
+            x += [x[-1] + self.increment(x[-1], t[-1], dt=dt)]
+        t = np.array(t)
         x = np.array(x)
         if kwargs.get('finite', False):
-            tarray = tarray[np.isfinite(x)]
+            t = t[np.isfinite(x)]
             x = x[np.isfinite(x)]
-        return tarray, x
+        return t[t <= t0+time], x[t <= t0+time]
 
     def traj_cond_gen(self, x0, t0, tau, M, **kwargs):
         """Generate trajectories conditioned on the first-passage time tau at value M.
