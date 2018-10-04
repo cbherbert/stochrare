@@ -1,5 +1,5 @@
 """
-Module for the Adaptive Multilevel Splitting algorithm
+Module for rare event algorithms of the "Adaptive Multilevel Splitting" family.
 """
 import numpy as np
 
@@ -7,6 +7,10 @@ class TAMS(object):
     """
     Implement the TAMS algorithm as described in
     Lestang, Ragone, Brehier, Herbert and Bouchet, J. Stat. Mech. 2018
+
+    This implementation keeps all the information in memory: this should not be suitable for complex
+    dynamics.
+    Similarly, the algorithm is not parallelized, even if the dynamics itself may be.
     """
     def __init__(self, model, scorefun, duration):
         """
