@@ -1,0 +1,5 @@
+[BASIC]
+
+variable-rgx=[a-zA-Z0-9_]{1,30}$
+argument-rgx=[a-zA-Z0-9_]{1,30}$
+class-attribute-rgx=[a-zA-Z0-9_]{1,30}$
