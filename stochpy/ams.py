@@ -156,7 +156,26 @@ class TAMS(object):
             for kill_ind in killed_pool:
                 yield self._ensemble[kill_ind], self._weight
 
-    def tams_returntimes(self, ntraj, niter, **kwargs):
+    ###
+    #   Methods to estimate properties of observables based on the trajectories
+    #   sampled by the algorithm
+    ###
+
+    def average(self, ntraj, niter, observable, **kwargs):
+        """
+        Estimate the average of an observable using AMS sampling
+        """
+        method = kwargs.get('method', self.tams_run)
+        pred = kwargs.get('condition', (lambda X: True))
+        tamsgen = method(ntraj, niter, **kwargs)
+        obs = 0
+        norm = 0
+        for traj, wght in tamsgen:
+            if pred(traj):
+                obs = obs + wght*np.array([observable(t, x) for t, x in zip(*traj)])
+                norm = norm + wght
+        return obs/norm
+
     def returntimes(self, ntraj, niter, **kwargs):
         """
         Estimate the return time of an observable using AMS sampling
