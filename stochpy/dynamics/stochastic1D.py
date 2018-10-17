@@ -98,7 +98,7 @@ class StochModel1D(object):
                 yield t, x
 
     @classmethod
-    def traj_fpt(self, M, *args):
+    def traj_fpt(cls, M, *args):
         """ Compute the first passage time for each trajectory given as argument """
         for tt, xx in args:
             for t, x in zip(tt, xx):
@@ -109,7 +109,7 @@ class StochModel1D(object):
     @classmethod
     def trajectoryplot(cls, *args, **kwargs):
         """ Plot previously computed trajectories """
-        fig = plt.figure()
+        _ = plt.figure()
         ax = plt.axes()
         lines = []
         for t, x in args:
@@ -236,7 +236,7 @@ class StochModel1D(object):
 
     def pdfplot(self, *args, **kwargs):
         """ Plot the pdf P(x,t) at various times """
-        fig = plt.figure()
+        _ = plt.figure()
         ax = plt.axes()
         t0 = kwargs.pop('t0', args[0])
         fun = kwargs.pop('integ', self.fpintegrate)
@@ -248,7 +248,8 @@ class StochModel1D(object):
             line, = ax.plot(X, P, label='t='+format(t, '.2f'))
             if kwargs.get('th', False):
                 Pth = self._fpthsol(X, t, **kwargs)
-                if Pth is not None: ax.plot(X, Pth, color=line.get_color(), linestyle='dotted')
+                if Pth is not None:
+                    ax.plot(X, Pth, color=line.get_color(), linestyle='dotted')
             if kwargs.get('potential', False):
                 ax2.plot(X, self.potential(X, t), linestyle='dashed')
             t0 = t
@@ -270,7 +271,7 @@ class StochModel1D(object):
         x = x0
         t = t0
         dt = kwargs.get('dt', self.default_dt)
-        while (x <= A):
+        while x <= A:
             x += self.increment(x, t, dt=dt)
             t += dt
         return t
@@ -283,14 +284,15 @@ class StochModel1D(object):
         """
         ntraj = kwargs.pop('ntraj', 100000)
         dtype = kwargs.pop('dtype', np.float32)
-        return np.array([firstpassagetime(x0, t0, A, **kwargs) for n in xrange(ntraj)], dtype=dtype)
+        return np.array([self.firstpassagetime(x0, t0, A, **kwargs) for _ in xrange(ntraj)],
+                        dtype=dtype)
 
     def escapetime_avg(self, x0, t0, A, **kwargs):
         """ Compute the average escape time for given initial condition (x0,t0) and threshold A """
         return np.mean(self.escapetime_sample(x0, t0, A, **kwargs))
 
     @classmethod
-    def escapetime_pdf(self, samples, **kwargs):
+    def escapetime_pdf(cls, samples, **kwargs):
         """
         Compute the probability distribution function of the first-passage time
         based on the input samples
@@ -302,9 +304,9 @@ class StochModel1D(object):
         return rc, hist
 
     @classmethod
-    def escapetime_pdfplot(self, *args, **kwargs):
+    def escapetime_pdfplot(cls, *args, **kwargs):
         """ Plot previously computed pdf of first passage time """
-        fig = plt.figure()
+        _ = plt.figure()
         ax = plt.axes()
         lines = []
         for t, p in args:
@@ -332,9 +334,12 @@ class StochModel1D(object):
         by solving the Fokker-Planck equation
         """
         t0 = kwargs.pop('t0', 0.0)
-        if 'P0' in kwargs: del kwargs['P0']
-        if 'P0center' in kwargs: del kwargs['P0center']
-        if 'bc' not in kwargs: kwargs['bc'] = ('reflecting', 'absorbing')
+        if 'P0' in kwargs:
+            del kwargs['P0']
+        if 'P0center' in kwargs:
+            del kwargs['P0center']
+        if 'bc' not in kwargs:
+            kwargs['bc'] = ('reflecting', 'absorbing')
         bnds = (kwargs.pop('bounds', (-10.0, 0.0))[0], A)
         time = np.sort([t0]+list(args))
         time = time[time >= t0]
@@ -352,14 +357,14 @@ class StochModel1D(object):
 
     def firstpassagetime_moments(self, x0, A, *args, **kwargs):
         """
-        Computes the moments of the first passage time, $\langle \tau_A^n \rangle_{x0,t0}$,
+        Computes the moments of the first passage time, <tau_A^n>_{x0,t0},
         by solving the Fokker-Planck equation
         """
         t0 = kwargs.get('t0', 0.0)
         tmax = kwargs.pop('tmax', 10.0)
         nt = kwargs.pop('nt', 10)
         times = np.linspace(t0, tmax, num=nt)
-        t, cdf = self.firstpassagetime_cdf(x0, A, *times, out='cdf', **kwargs)
+        _, cdf = self.firstpassagetime_cdf(x0, A, *times, out='cdf', **kwargs)
         Mn = []
         for n in args:
             Mn += [t0**n + n*integrate.trapz(cdf*times**(n-1), times)]
@@ -394,7 +399,7 @@ class StochModel1D(object):
             arr = np.array([exppot_int(*u) for u in [(inf, y[0])]+zip(y[:-1], y[1:])])
             ifun = interp1d(y, arr.cumsum())
             # now compute the outer integral by chunks
-            return np.concatenate((badargs, args)),np.array(len(badargs)*[0.]+[exppot_int(*bds, sign=1, fun=ifun) for bds in [(x0, args[0])]+zip(args[:-1], args[1:])]).cumsum()/self.D0
+            return np.concatenate((badargs, args)), np.array(len(badargs)*[0.]+[exppot_int(*bds, sign=1, fun=ifun) for bds in [(x0, args[0])]+zip(args[:-1], args[1:])]).cumsum()/self.D0
         elif src == 'theory2':
             def exppot(y, sign=-1, fun=lambda z: 1):
                 return np.exp(sign*self.potential(y, t0)/self.D0)*fun(y)
@@ -408,7 +413,8 @@ class StochModel1D(object):
             ofun = interp1d(y, oarr)
             return np.concatenate((badargs, args)), np.concatenate((len(badargs)*[0.], ofun(args)))
         elif src == 'adjoint':
-            # here we need to solve the adjoint FP equation for each threshold value, so this is much more expensive than the theoretical formula of course.
+            # here we need to solve the adjoint FP equation for each threshold value,
+            # so this is much more expensive than the theoretical formula of course.
             def interp_int(G, t):
                 logG = interp1d(t, np.log(G), fill_value="extrapolate")
                 return integrate.quad(lambda x: np.exp(logG(x)), 0.0, np.inf)[0] # careful: this is not the right expression for arbitrary t0 !!
@@ -417,15 +423,16 @@ class StochModel1D(object):
             return np.concatenate((badargs, args)), np.array(len(badargs)*[0.]+[integ_method(*(self.firstpassagetime_cdf(x0, A, *np.linspace(0.0, tmax, num=nt), t0=t0, out='G', src='adjoint', **kwargs)[::-1])) for A in args])
 #        elif src in ('FP','quad'):
         elif src == 'FP':
-            # here we need to solve the FP equation for each threshold value, so this is much more expensive than the theoretical formula of course.
+            # here we need to solve the FP equation for each threshold value,
+            # so this is much more expensive than the theoretical formula of course.
             def interp_int(G, t):
                 logG = interp1d(t, np.log(G), fill_value="extrapolate")
                 return integrate.quad(lambda x: np.exp(logG(x)), t0, np.inf)[0]
             integ_method = {True: interp_int,
                             False: integrate.trapz}.get(kwargs.pop('interpolate', True))
-            return np.concatenate((badargs, args)),np.array(len(badargs)*[0.]+[t0+integ_method(*(self.firstpassagetime_cdf(x0, A, *np.linspace(t0, tmax, num=nt), t0=t0, out='G', **kwargs)[::-1])) for A in args])
+            return np.concatenate((badargs, args)), np.array(len(badargs)*[0.]+[t0+integ_method(*(self.firstpassagetime_cdf(x0, A, *np.linspace(t0, tmax, num=nt), t0=t0, out='G', **kwargs)[::-1])) for A in args])
         else:
-            pass
+            raise NotImplementedError('Unrecognized method for computing first passage time')
 
 
     def instanton(self, x0, p0, *args, **kwargs):
