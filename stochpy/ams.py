@@ -157,12 +157,15 @@ class TAMS(object):
                 yield self._ensemble[kill_ind], self._weight
 
     def tams_returntimes(self, ntraj, niter, **kwargs):
+    def returntimes(self, ntraj, niter, **kwargs):
         """
-        Here the observable is the score function itself (temporary only)
+        Estimate the return time of an observable using AMS sampling
         """
         method = kwargs.get('method', self.tams_run)
+        obs = kwargs.get('observable', self.score)
         tamsgen = method(ntraj, niter, **kwargs)
-        blockmax = np.array([(self.getlevel(*traj), wght) for traj, wght in tamsgen])
+        blockmax = np.array([(np.max([obs(t, x) for t, x in zip(*traj)]), wght)
+                             for traj, wght in tamsgen])
         blockmax[:, 1] = blockmax[:, 1]/np.sum(blockmax[:, 1])
         blockmax = blockmax[blockmax[:, 0].argsort()[::-1]]
         return blockmax[:, 0], -self.duration/np.log(1-np.cumsum(blockmax[:, 1]))
