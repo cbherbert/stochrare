@@ -354,8 +354,6 @@ class StochModel1D(object):
         x0 and p0 are the initial conditions.
         Return the instanton trajectory (t,x).
         """
-        def rev(f):
-            return lambda t, Y: f(Y, t)
         def inverse(f):
             return lambda Y, t: -f(Y, -t)
         def filt_fun(t, x):
@@ -367,25 +365,55 @@ class StochModel1D(object):
             return t[:maxind], x[:maxind]
         solver = kwargs.pop('solver', 'odeint')
         scheme = kwargs.pop('integrator', 'dopri5')
-        var = kwargs.pop('change_vars', 'None')
         filt_traj = kwargs.pop('filter_traj', False)
         back = kwargs.pop('backwards', False)
         times = np.sort(args)
         fun = self._instantoneq
         jac = self._instantoneq_jac
-        if var == 'log':
-            fun = self._instantoneq_log
-            jac = self._instantoneq_jac_log
         if back:
             fun = inverse(fun)
             jac = inverse(jac)
         if solver == 'odeint':
-            x = integrate.odeint(fun, (x0, p0), times, **kwargs)[:, 0]
+            x = integrate.odeint(fun, (x0, p0), times, tfirst=True, **kwargs)[:, 0]
             return filt_fun(times, x) if filt_traj else (times, x)
         elif solver == 'odeclass':
-            integ = integrate.ode(rev(fun), jac=rev(jac)).set_integrator(scheme, **kwargs)
+            integ = integrate.ode(fun, jac=jac).set_integrator(scheme, **kwargs)
             integ.set_initial_value([x0, p0], times[0])
             return times, [integ.integrate(t)[0] for t in times]
+
+    def _instantoneq(self, t, Y):
+        """
+        Equations of motion for instanton dynamics.
+        These are just the Hamilton equations corresponding to the action.
+
+        Y should be a vector (list or numpy.ndarray) with two items: x=Y[0] and p=Y[1]
+        """
+        x = Y[0]
+        p = Y[1]
+        return [2.*p+self.F(x, t),
+                -p*derivative(self.F, x, dx=1e-6, args=(t, ))]
+
+    def _instantoneq_jac(self, t, Y):
+        """
+        Jacobian of instanton dynamics.
+
+        Y should be a vector (list or numpy.ndarray) with two items: x=Y[0] and p=Y[1]
+        """
+        x = Y[0]
+        p = Y[1]
+        dbdx = derivative(self.F, x, dx=1e-6, args=(t, ))
+        return np.array([[dbdx, 2.],
+                         [-p*derivative(self.F, x, n=2, dx=1e-6, args=(t, )), -dbdx]])
+
+
+    def action(self, *args):
+        """
+        Compute the action for all the trajectories given as arguments
+        """
+        for t, x in args:
+            xdot = edpy.CenteredFD(t).grad(x)
+            p = 0.5*(xdot-self.F(x[1:-1], t[1:-1]))
+            yield integrate.trapz(p**2, t[1:-1])
 
 
 class Wiener1D(StochModel1D):
@@ -413,7 +441,30 @@ class OrnsteinUhlenbeck1D(StochModel1D):
         dx_t = theta*(mu-x_t)+sqrt(2*D)*dW_t
     """
     def __init__(self, mu, theta, D):
+        self.d_f = (lambda x, t: -theta)
         super(OrnsteinUhlenbeck1D, self).__init__(lambda x, t: theta*(mu-x), D)
+
+    def _instantoneq(self, t, Y):
+        """
+        Equations of motion for instanton dynamics.
+        These are just the Hamilton equations corresponding to the action.
+
+        Y should be a vector (list or numpy.ndarray) with two items: x=Y[0] and p=Y[1]
+        """
+        x = Y[0]
+        p = Y[1]
+        return [2.*p+self.F(x, t),
+                -p*self.d_f(x, t)]
+
+    def _instantoneq_jac(self, t, Y):
+        """
+        Jacobian of instanton dynamics.
+
+        Y should be a vector (list or numpy.ndarray) with two items: x=Y[0] and p=Y[1]
+        """
+        dbdx = self.d_f(Y[0], t)
+        return np.array([[dbdx, 2.],
+                         [0, -dbdx]])
 
 
 class StochModel1D_T(StochModel1D):
