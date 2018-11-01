@@ -130,7 +130,7 @@ class TAMS(object):
     #    (trajectory enumeration order, stopping condition).
     ###
 
-    def tams_run(self, ntraj, niter, **kwargs):
+    def run_iter(self, ntraj, niter, **kwargs):
         """
         Generate trajectories
         - ntraj: the number of trajectories in the initial ensemble
@@ -209,7 +209,7 @@ class TAMS(object):
         """
         Estimate the average of an observable using AMS sampling
         """
-        method = kwargs.get('method', self.tams_run)
+        method = kwargs.get('method', self.run_iter)
         pred = kwargs.get('condition', (lambda X: True))
         tamsgen = method(ntraj, niter, **kwargs)
         obs = 0
@@ -224,7 +224,7 @@ class TAMS(object):
         """
         Estimate the return time of an observable using AMS sampling
         """
-        method = kwargs.get('method', self.tams_run)
+        method = kwargs.get('method', self.run_iter)
         obs = kwargs.get('observable', self.score)
         tamsgen = method(ntraj, niter, **kwargs)
         blockmax = np.array([(np.max([obs(t, x) for t, x in zip(*traj)]), wght)
