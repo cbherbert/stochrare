@@ -162,6 +162,30 @@ class TAMS(object):
             for kill_ind in killed_pool:
                 yield self._ensemble[kill_ind], self._weight
 
+    def run_level(self, ntraj, target_lev, **kwargs):
+        """
+        Generate trajectories
+        - ntraj: the number of trajectories in the initial ensemble
+        - target_lev: the target level
+
+        The generator yields (trajectory, weight) pairs which allows to compute easily the
+        probability associated to each sampled trajectory.
+        This method yields first the killed trajectories as the algorithm is iterated,
+        then the trajectories in the final ensemble.
+
+        Optional arguments can be passed to the "trajectory" method of the dynamics object.
+        """
+        # For now we fix the initial conditions:
+        self.initialize_ensemble(0, 0, ntraj, **kwargs)
+        while np.min(self._levels) < target_lev:
+            killed_pool, survivor_pool = self.selectionstep(self._levels)
+            for kill_ind in killed_pool:
+                yield self._ensemble[kill_ind], self._weight
+            self.mutationstep(killed_pool, survivor_pool, **kwargs)
+        for traj in self._ensemble:
+            yield traj, self._weight
+
+
     ###
     #   Methods to estimate properties of observables based on the trajectories
     #   sampled by the algorithm
