@@ -2,7 +2,7 @@ import numpy as np
 import os, pickle, warnings
 import scipy.integrate as integrate
 from scipy.interpolate import interp1d
-import edpy
+from . import edpy
 
 class Database(dict):
     """ A simple generic database class I use to cache the results from computations on simple stochastic systems to avoid making the same computations over and over again.
