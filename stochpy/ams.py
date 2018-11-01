@@ -30,6 +30,11 @@ class TAMS(object):
         self._levels = []
         self._weight = 0
 
+    ###
+    #   Tools used by the AMS algorithm to handle trajectories
+    #   These could almost be private methods.
+    ###
+
     def getcrossingtime(self, level, times, traj):
         """
         Return the time and position at which the trajectory reaches the specified level
@@ -62,6 +67,10 @@ class TAMS(object):
         tnew = np.concatenate((told[told < time], tnew), axis=0)
         xnew = np.concatenate((xold[told < time], xnew), axis=0)
         return tnew, xnew
+
+    ###
+    #   selectionstep and mutationstep are the two building blocks for the AMS algorithm
+    ###
 
     @staticmethod
     def selectionstep(levels, npart=1):
@@ -115,6 +124,11 @@ class TAMS(object):
         # compute the maximum of the score function over each trajectory:
         self._levels = np.array([self.getlevel(*traj) for traj in self._ensemble])
 
+    ###
+    #    Below are the methods which actually implement the whole algorithm.
+    #    There are actually several of them, corresponding to small variants
+    #    (trajectory enumeration order, stopping condition).
+    ###
 
     def tams_run(self, ntraj, niter, **kwargs):
         """
