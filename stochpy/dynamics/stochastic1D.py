@@ -196,7 +196,7 @@ class StochModel1D(object):
         """
         ntraj = kwargs.pop('ntraj', 100000)
         dtype = kwargs.pop('dtype', np.float32)
-        return np.array([self.firstpassagetime(x0, t0, A, **kwargs) for _ in xrange(ntraj)],
+        return np.array([self.firstpassagetime(x0, t0, A, **kwargs) for _ in range(ntraj)],
                         dtype=dtype)
 
     def escapetime_avg(self, x0, t0, A, **kwargs):

@@ -55,7 +55,7 @@ class StochModel(object):
         t = t0
         dt = kwargs.get('dt', self.default_dt) # Time step
         obs = kwargs.get('observable', lambda x: x)
-        for _ in xrange(nsteps):
+        for _ in range(nsteps):
             t = t + dt
             x = x + self.increment(x, t, dt=dt)
             yield t, obs(x)
@@ -64,7 +64,7 @@ class StochModel(object):
         """
         Compute the sample mean of a time dependent observable
         """
-        gens = [self.generator(x0, t0, nsteps, **kwargs) for _ in xrange(nsamples)]
+        gens = [self.generator(x0, t0, nsteps, **kwargs) for _ in range(nsamples)]
         while True:
             time, obs = zip(*[next(gen) for gen in gens])
             yield np.average(time, axis=0), np.average(obs, axis=0)

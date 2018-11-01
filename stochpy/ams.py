@@ -104,7 +104,7 @@ class TAMS(object):
         Generate the initial ensemble.
         """
         self._ensemble = [self.dynamics.trajectory(x0, t0, T=self.duration, **kwargs)
-                          for _ in xrange(ntraj)]
+                          for _ in range(ntraj)]
         self._weight = 1
         # compute the maximum of the score function over each trajectory:
         self._levels = np.array([self.getlevel(*traj) for traj in self._ensemble])
@@ -125,7 +125,7 @@ class TAMS(object):
         """
         # For now we fix the initial conditions:
         self.initialize_ensemble(0, 0, ntraj, **kwargs)
-        for _ in xrange(niter):
+        for _ in range(niter):
             killed_pool, survivor_pool = self.selectionstep(self._levels)
             for kill_ind in killed_pool:
                 yield self._ensemble[kill_ind], self._weight
@@ -150,7 +150,7 @@ class TAMS(object):
         self.initialize_ensemble(0, 0, ntraj, **kwargs)
         for traj in self._ensemble:
             yield traj, self._weight
-        for _ in xrange(niter):
+        for _ in range(niter):
             killed_pool, survivor_pool = self.selectionstep(self._levels)
             self.mutationstep(killed_pool, survivor_pool, **kwargs)
             for kill_ind in killed_pool:

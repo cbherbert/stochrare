@@ -40,7 +40,7 @@ def levelscrossing(x, threshold, **kwargs):
         sign = 1
     if not abs(sign) == 1:
         sign /= abs(sign)
-    for i in xrange(len(x)-1):
+    for i in range(len(x)-1):
         if (threshold+sign*x[i]) > 0 and (threshold+sign*x[i+1]) < 0:
             sign *= -1
             yield i

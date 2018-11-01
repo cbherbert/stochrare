@@ -150,7 +150,7 @@ def testfp(t0, B, M, Np, dt, niter, Deltat, **kwargs):
 
     ax.plot(X, P, label='t='+str(t0))
     t = t0
-    for k in xrange(niter):
+    for k in range(niter):
         t, P = model.fpintegrate(t, Deltat, B, M, Np, dt, P=P)
         ax.plot(X, P, label='t='+str(t))
 
