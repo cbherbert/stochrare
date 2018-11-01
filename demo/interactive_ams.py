@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import stochpy as sp
 
 class InteractiveAMS:
+    # pylint: disable=too-few-public-methods
     """
     The object for interative interation of the AMS algorithm.
 
