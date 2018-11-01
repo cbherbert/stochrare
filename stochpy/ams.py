@@ -75,10 +75,16 @@ class TAMS(object):
                  npart=1 corresponds to the last particle method
                  Note that one level can correspond to several trajectories in the ensemble.
         """
+        if npart > 1:
+            raise RuntimeWarning("Methods other than last particle not fully implemented yet")
         kill_threshold = np.unique(levels)[npart-1]
-        # What do we do if npart > len(np.unique(levels)) ? i.e. survivor_pool == []
         survivor_pool = np.flatnonzero(levels > kill_threshold)
         killed_pool = np.flatnonzero(levels <= kill_threshold)
+        # If survivor_pool is empty, we kill no particle instead of killing them all
+        if survivor_pool.size == 0:
+            killed_pool, survivor_pool = survivor_pool, killed_pool
+        # Actually, this does not solve the problem that we may have npart>len(np.unique(levels))
+        # raising an error first
         return killed_pool, survivor_pool
 
     def mutationstep(self, killed_pool, survivor_pool, **kwargs):
