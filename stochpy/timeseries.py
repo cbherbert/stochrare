@@ -52,7 +52,7 @@ def residencetimes(x, threshold):
 
 def blockmaximum(traj, nblocks, mode='proba', modified=False, **kwargs):
     """
-    Generate pairs (a, p(a)) (mode='proba') or (a,r(a)) (mode='returntime'),
+    Generate pairs (a, p(a)) (mode='proba') or (a, r(a)) (mode='returntime'),
     where p(a) is the probability to reach a and r(a) the corresponding return time (see below).
 
     Block maximum method.
@@ -78,7 +78,7 @@ def blockmaximum(traj, nblocks, mode='proba', modified=False, **kwargs):
     """
     time = kwargs.get('time', np.arange(len(traj)))
     trajlen = float(time[-1]-time[0])
-    blocklen = len(traj)/nblocks
+    blocklen = int(len(traj)/nblocks)
     blockmax = [np.max(traj[k*blocklen:(k+1)*blocklen]) for k in range(nblocks)]
     last = 0 if modified else None
     for cnt, maxi in enumerate(np.sort(blockmax)[:last:-1], 1):
