@@ -56,13 +56,14 @@ class StochModel1D(object):
         x = [x0]
         dt = kwargs.get('dt', self.default_dt)
         time = kwargs.get('T', 10.0)
+        precision = kwargs.get('precision', np.float32)
         if dt < 0:
             time = -time
-        while t[-1] < t0+time:
-            t += [t[-1] + dt]
-            x += [x[-1] + self.increment(x[-1], t[-1], dt=dt)]
-        t = np.array(t)
-        x = np.array(x)
+        while t[-1] <= t0+time:
+            t.append(t[-1] + dt)
+            x.append(x[-1] + self.increment(x[-1], t[-1], dt=dt))
+        t = np.array(t, dtype=precision)
+        x = np.array(x, dtype=precision)
         if kwargs.get('finite', False):
             t = t[np.isfinite(x)]
             x = x[np.isfinite(x)]

@@ -17,7 +17,7 @@ class TAMS(object):
         - dynamics: stochpy.dynamics.StochModel object (or a subclass of it)
                     The dynamical model; so far we are restricted to SDEs of the form
                         dX_t = F(X_t, t) + sqrt(2D)dW_t
-                    We only used the trajectory method of the dynamics object.
+                    We only use the trajectory method of the dynamics object.
         - score: a scalar function with two arguments.
                  The score function Xi(t, x)
         - duration: float

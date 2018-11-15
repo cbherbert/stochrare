@@ -7,6 +7,7 @@ import os
 import numpy as np
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import stochpy.dynamics.stochastic as stochastic
+import stochpy.dynamics.stochastic1D as stochastic1d
 import stochpy.timeseries as ts
 import stochpy.ams as ams
 
@@ -40,6 +41,14 @@ class TestAMS(unittest.TestCase):
         data[10] = 2.
         algo = ams.TAMS(None, (lambda t, x: x), 10.)
         self.assertEqual(algo.getcrossingtime(1.5, np.arange(100), data), (10, 2.0))
+
+    def test_resample(self):
+        told = np.linspace(0, 1, 101)
+        xold = np.random.random(101)
+        algo = ams.TAMS(stochastic1d.OrnsteinUhlenbeck1D(0, 1, 0.5), (lambda t, x: x), 1.)
+        tnew, xnew = algo.resample(told[51], xold[51], told, xold, dt=0.01)
+        np.testing.assert_allclose(xold[:52], xnew[:52])
+        np.testing.assert_allclose(told, tnew)
 
     def test_selectams(self):
         levels = np.array([0.5, 1.1, 0.2, 0.6, 0.2, 0.5])
