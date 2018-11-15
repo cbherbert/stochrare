@@ -1,31 +1,53 @@
 """
 Module for rare event algorithms of the "Adaptive Multilevel Splitting" family.
+
+There are two kinds of variants of the AMS algorithms.
+On the one hand, there are "scientific" variants, corresponding to different formulations of the
+algorithm (e.g. AMS vs TAMS).
+On the other hand, there are "technical" variants, corresponding to different implementations: for
+instance, keeping all the trajectories in memory or storing them on disk (necessary for applications
+to complex systems)
 """
 import numpy as np
 
-class TAMS(object):
+class AMS(object):
     """
-    Implement the TAMS algorithm as described in
-    Lestang, Ragone, Brehier, Herbert and Bouchet, J. Stat. Mech. 2018
+    Implement the original version of the 'Adaptive Multilevel Splitting Algorithm'
 
-    This implementation keeps all the information in memory: this should not be suitable for complex
-    dynamics.
-    Similarly, the algorithm is not parallelized, even if the dynamics itself may be.
+    TODO: add references
+
+    The algorithm evolves an ensemble of trajectories in an interactive manner,
+    using selection and mutation steps.
+    The algorithm requires two sets A and B, and a 'reactive coordinate' or 'score function' xi,
+    measuring the distance between the two.
+    In fact, we require that xi vanishes over the boundary of A, and takes unit value over the
+    boundary of B.
+
+    * Initilization:
+    The ensemble is initialized by running N trajectories until they reach set A or set B.
+
+    * Selection
+    Then at each iteration, the maximum value of the score function over each member of the ensemble
+    is computed. The q trajectories with lowest score function are 'killed'.
+
+    * Mutation
+    For each trajectory killed, we pick a random trajectory among the 'survivors'.
+    We clone that trajectory until it reaches the level of the killed trajectory for the first time,
+    then we restart it from that point until it reaches set A or B.
+
+    The algorithm is iterated until all trajectories reach set B.
     """
-    def __init__(self, model, scorefun, duration):
+    def __init__(self, model, scorefun):
         """
-        - dynamics: stochpy.dynamics.StochModel object (or a subclass of it)
-                    The dynamical model; so far we are restricted to SDEs of the form
-                        dX_t = F(X_t, t) + sqrt(2D)dW_t
-                    We only use the trajectory method of the dynamics object.
-        - score: a scalar function with two arguments.
-                 The score function Xi(t, x)
-        - duration: float
-                    The fixed duration for each trajectory
+        - model: stochpy.dynamics.StochModel object (or a subclass of it)
+                 The dynamical model; so far we are restricted to SDEs of the form
+                     dX_t = F(X_t, t) + sqrt(2D)dW_t
+                 We only use the increment method of the dynamics object.
+        - scorefun: a scalar function with two arguments.
+                    The score function Xi(t, x)
         """
         self.dynamics = model
         self.score = scorefun
-        self.duration = duration
         self._ensemble = []
         self._levels = []
         self._weight = 0
@@ -63,14 +85,36 @@ class TAMS(object):
         """
         Resample a trajectory after a given time
         """
-        tnew, xnew = self.dynamics.trajectory(pos, time, T=self.duration-time, **kwargs)
+        tnew, xnew = self.simul_trajectory(pos, time, **kwargs)
         tnew = np.concatenate((told[told < time], tnew), axis=0)
         xnew = np.concatenate((xold[told < time], xnew), axis=0)
         return tnew, xnew
 
+    def simul_trajectory(self, x0, t0, **kwargs):
+        """
+        Simulate a trajectory with initial conditions (t0, x0), until it reaches either set A
+        (score <= 0) or set B (score >= 1).
+        """
+        t = [t0]
+        x = [x0]
+        dt = kwargs.get('dt', self.dynamics.default_dt)
+        while 0 < self.score(t[-1], x[-1]) < 1:
+            t += [t[-1] + dt]
+            x += [x[-1] + self.dynamics.increment(x[-1], t[-1], dt=dt)]
+        return np.array(t), np.array(x)
+
     ###
     #   selectionstep and mutationstep are the two building blocks for the AMS algorithm
     ###
+
+    def initialize_ensemble(self, x0, t0, ntraj, **kwargs):
+        """
+        Generate the initial ensemble.
+        """
+        self._ensemble = [self.simul_trajectory(x0, t0, **kwargs) for _ in range(ntraj)]
+        self._weight = 1
+        # compute the maximum of the score function over each trajectory:
+        self._levels = np.array([self.getlevel(*traj) for traj in self._ensemble])
 
     @staticmethod
     def selectionstep(levels, npart=1):
@@ -113,15 +157,6 @@ class TAMS(object):
         # update the weight
         self._weight = self._weight*(1-float(len(killed_pool))/len(self._ensemble))
 
-    def initialize_ensemble(self, x0, t0, ntraj, **kwargs):
-        """
-        Generate the initial ensemble.
-        """
-        self._ensemble = [self.dynamics.trajectory(x0, t0, T=self.duration, **kwargs)
-                          for _ in range(ntraj)]
-        self._weight = 1
-        # compute the maximum of the score function over each trajectory:
-        self._levels = np.array([self.getlevel(*traj) for traj in self._ensemble])
 
     ###
     #    Below are the methods which actually implement the whole algorithm.
@@ -197,6 +232,46 @@ class TAMS(object):
             self.mutationstep(killed_pool, survivor_pool, **kwargs)
         for traj in self._ensemble:
             yield traj, self._weight
+
+
+
+class TAMS(AMS):
+    """
+    Implement the TAMS algorithm as described in
+    Lestang, Ragone, Brehier, Herbert and Bouchet, J. Stat. Mech. 2018
+
+    This implementation keeps all the information in memory: this should not be suitable for complex
+    dynamics.
+    Similarly, the algorithm is not parallelized, even if the dynamics itself may be.
+    """
+    def __init__(self, model, scorefun, duration):
+        """
+        - dynamics: stochpy.dynamics.StochModel object (or a subclass of it)
+                    The dynamical model; so far we are restricted to SDEs of the form
+                        dX_t = F(X_t, t) + sqrt(2D)dW_t
+                    We only use the trajectory method of the dynamics object.
+        - score: a scalar function with two arguments.
+                 The score function Xi(t, x)
+        - duration: float
+                    The fixed duration for each trajectory
+        """
+        AMS.__init__(self, model, scorefun)
+        self.duration = duration
+
+    def resample(self, time, pos, told, xold, **kwargs):
+        """
+        Resample a trajectory after a given time
+        """
+        kwargs['T'] = told[0] + self.duration-time
+        return AMS.resample(self, time, pos, told, xold, **kwargs)
+
+    def simul_trajectory(self, x0, t0, **kwargs):
+        """
+        Simulate a trajectory with initial conditions (t0, x0) for a fixed duration.
+        """
+        if 'T' not in kwargs:
+            kwargs['T'] = self.duration
+        return self.dynamics.trajectory(x0, t0, **kwargs)
 
 
     ###
