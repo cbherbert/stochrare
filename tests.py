@@ -61,6 +61,15 @@ class TestAMS(unittest.TestCase):
         np.testing.assert_array_equal(ams.TAMS.selectionstep(levels, npart=4)[0], [])
         np.testing.assert_array_equal(ams.TAMS.selectionstep(levels, npart=5)[0], [])
 
+    def test_initialize(self):
+        algo = ams.TAMS(stochastic1d.OrnsteinUhlenbeck1D(0, 1, 0.5), (lambda t, x: x), 1.)
+        algo.initialize_ensemble(0., 0., 10, dt=0.01)
+        self.assertEqual(algo._weight, 1)
+        self.assertEqual(algo._levels.size, 10)
+        for ind in range(10):
+            np.testing.assert_allclose(algo._ensemble[ind][0], np.linspace(0., 1.0, num=101))
+            self.assertEqual(algo._ensemble[ind][0].size, algo._ensemble[ind][1].size)
+
 
 if __name__ == "__main__":
     unittest.main()
