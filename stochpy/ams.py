@@ -282,15 +282,32 @@ class TAMS(AMS):
     def average(self, ntraj, niter, observable, **kwargs):
         """
         Estimate the average of an observable using AMS sampling
+        - ntraj: number of initial trajectories in the ensemble
+        - niter: number of iterations of the AMS algorithm
+        - observable: a function of the form O(t, x), where t and x are numpy arrays.
+                      It should itself return a numpy array.
+                      For instance, it could be a time-independent function of the type
+                         (lambda t, x: x**2)
+                      or a functional of the trajectory such as
+                         (lambda t, x: np.array([np.max(x**2)])
+                      Note that in the latter case it is crucial to convert the scalar to an array.
+        - method (optional): the method used to sample the trajectories with the AMS algorithm
+                             It can be one of TAMS().run_iter or TAMS().run_resamp.
+        - condition (optional): predicate for conditional averaging.
+                                It should be of the form pred((t,x)) in (True, False).
         """
-        method = kwargs.get('method', self.run_iter)
-        pred = kwargs.get('condition', (lambda X: True))
+        method = kwargs.pop('method', self.run_iter)
+        pred = kwargs.pop('condition', (lambda X: True))
         tamsgen = method(ntraj, niter, **kwargs)
-        obs = 0
+        obs = np.array([0])
         norm = 0
         for traj, wght in tamsgen:
             if pred(traj):
-                obs = obs + wght*np.array([observable(t, x) for t, x in zip(*traj)])
+                obstraj = observable(*traj)
+                # The length of trajectories may differ because of rounding errors
+                # Hence, we truncate to the smallest size of the sample trajectories
+                size = min(obs.size, obstraj.size) if obs.size > 1 else obstraj.size
+                obs = obs[:size] + wght*obstraj[:size]
                 norm = norm + wght
         return obs/norm
 
