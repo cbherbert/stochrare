@@ -32,7 +32,14 @@ class StochModel(object):
         return self.F(x, t) * dt + np.sqrt(2.0*self.D0*dt)*np.random.normal(0.0, 1.0, dim)
 
     def trajectory(self, x0, t0, **kwargs):
-        """ Integrate a trajectory with given initial condition (t0,x0) """
+        """
+        Integrate a trajectory with given initial condition (t0, x0)
+        Optional arugments:
+        - dt: the timestep, forwarded to the increment routine
+              (default 0.1, unless overridden by a subclass)
+        - T: the time duration of the trajectory (default 10)
+        - finite: filter finite values before returning trajectory
+        """
         x = [x0]
         dt = kwargs.get('dt', self.default_dt) # Time step
         time = kwargs.get('T', 10.0)   # Total integration time
