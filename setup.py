@@ -12,10 +12,10 @@ setuptools.setup(
     description="A package to simulate simple stochastic processes",
     long_description=readme,
     packages=["stochpy", "stochpy.dynamics"],
-    classifiers=(
+    classifiers=[
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
         "Intended Audience :: Science/Research",
         "Topic :: Scientific/Engineering :: Physics",
-    ),
+    ],
 )
