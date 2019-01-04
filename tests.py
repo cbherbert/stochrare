@@ -70,6 +70,13 @@ class TestAMS(unittest.TestCase):
             np.testing.assert_allclose(algo._ensemble[ind][0], np.linspace(0., 1.0, num=101))
             self.assertEqual(algo._ensemble[ind][0].size, algo._ensemble[ind][1].size)
 
+    def test_mutateams(self):
+        algo = ams.TAMS(stochastic1d.OrnsteinUhlenbeck1D(0, 1, 0.5), (lambda t, x: x), 1.)
+        algo.initialize_ensemble(0., 0., 10, dt=0.01)
+        kill, survive = algo.selectionstep(algo._levels)
+        algo.mutationstep(kill, survive, dt=0.01)
+        self.assertEqual(algo._weight, 1-float(kill.size)/10)
+
 
 if __name__ == "__main__":
     unittest.main()
