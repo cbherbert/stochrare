@@ -30,7 +30,7 @@ class InteractiveAMS:
     """
     def __init__(self, tams, ntraj, ax):
         self.tams = tams
-        self.tams.initialize_ensemble(0, 0, ntraj, dt=0.01)
+        self.tams.initialize_ensemble(ntraj, dt=0.01)
         self.ax = ax
         self.lines = []
         self.maxdots = []

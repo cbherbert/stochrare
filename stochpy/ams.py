@@ -23,7 +23,7 @@ class AMS(object):
     In fact, we require that xi vanishes over the boundary of A, and takes unit value over the
     boundary of B.
 
-    * Initilization:
+    * Initialization:
     The ensemble is initialized by running N trajectories until they reach set A or set B.
 
     * Selection
@@ -37,7 +37,7 @@ class AMS(object):
 
     The algorithm is iterated until all trajectories reach set B.
     """
-    def __init__(self, model, scorefun):
+    def __init__(self, model, scorefun, initcond=(lambda: (0., 0.))):
         """
         - model: stochpy.dynamics.StochModel object (or a subclass of it)
                  The dynamical model; so far we are restricted to SDEs of the form
@@ -45,9 +45,15 @@ class AMS(object):
                  We only use the increment method of the dynamics object.
         - scorefun: a scalar function with two arguments.
                     The score function Xi(t, x)
+        - initcond (optional): a function with no arguments to generate initial conditions.
+                               It can be for instance a constant:
+                                   lambda: x0, t0
+                               or generate random initial conditions:
+                                   lambda: np.random.random(), t0
         """
         self.dynamics = model
         self.score = scorefun
+        self.initcond = initcond
         self._ensemble = []
         self._levels = []
         self._weight = 0
@@ -107,11 +113,11 @@ class AMS(object):
     #   selectionstep and mutationstep are the two building blocks for the AMS algorithm
     ###
 
-    def initialize_ensemble(self, x0, t0, ntraj, **kwargs):
+    def initialize_ensemble(self, ntraj, **kwargs):
         """
         Generate the initial ensemble.
         """
-        self._ensemble = [self.simul_trajectory(x0, t0, **kwargs) for _ in range(ntraj)]
+        self._ensemble = [self.simul_trajectory(*self.initcond(), **kwargs) for _ in range(ntraj)]
         self._weight = 1
         # compute the maximum of the score function over each trajectory:
         self._levels = np.array([self.getlevel(*traj) for traj in self._ensemble])
@@ -177,8 +183,7 @@ class AMS(object):
 
         Optional arguments can be passed to the "trajectory" method of the dynamics object.
         """
-        # For now we fix the initial conditions:
-        self.initialize_ensemble(0, 0, ntraj, **kwargs)
+        self.initialize_ensemble(ntraj, **kwargs)
         for _ in range(niter):
             killed_pool, survivor_pool = self.selectionstep(self._levels)
             for kill_ind in killed_pool:
@@ -200,8 +205,7 @@ class AMS(object):
 
         Optional arguments can be passed to the "trajectory" method of the dynamics object.
         """
-        # For now we fix the initial conditions:
-        self.initialize_ensemble(0, 0, ntraj, **kwargs)
+        self.initialize_ensemble(ntraj, **kwargs)
         for traj in self._ensemble:
             yield traj, self._weight
         for _ in range(niter):
@@ -223,8 +227,7 @@ class AMS(object):
 
         Optional arguments can be passed to the "trajectory" method of the dynamics object.
         """
-        # For now we fix the initial conditions:
-        self.initialize_ensemble(0, 0, ntraj, **kwargs)
+        self.initialize_ensemble(ntraj, **kwargs)
         while np.min(self._levels) < target_lev:
             killed_pool, survivor_pool = self.selectionstep(self._levels)
             for kill_ind in killed_pool:
@@ -244,7 +247,7 @@ class TAMS(AMS):
     dynamics.
     Similarly, the algorithm is not parallelized, even if the dynamics itself may be.
     """
-    def __init__(self, model, scorefun, duration):
+    def __init__(self, model, scorefun, duration, **kwargs):
         """
         - dynamics: stochpy.dynamics.StochModel object (or a subclass of it)
                     The dynamical model; so far we are restricted to SDEs of the form
@@ -255,7 +258,7 @@ class TAMS(AMS):
         - duration: float
                     The fixed duration for each trajectory
         """
-        AMS.__init__(self, model, scorefun)
+        AMS.__init__(self, model, scorefun, **kwargs)
         self.duration = duration
 
     def resample(self, time, pos, told, xold, **kwargs):
