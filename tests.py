@@ -63,7 +63,7 @@ class TestAMS(unittest.TestCase):
 
     def test_initialize(self):
         algo = ams.TAMS(stochastic1d.OrnsteinUhlenbeck1D(0, 1, 0.5), (lambda t, x: x), 1.)
-        algo.initialize_ensemble(0., 0., 10, dt=0.01)
+        algo.initialize_ensemble(10, dt=0.01)
         self.assertEqual(algo._weight, 1)
         self.assertEqual(algo._levels.size, 10)
         for ind in range(10):
@@ -72,7 +72,7 @@ class TestAMS(unittest.TestCase):
 
     def test_mutateams(self):
         algo = ams.TAMS(stochastic1d.OrnsteinUhlenbeck1D(0, 1, 0.5), (lambda t, x: x), 1.)
-        algo.initialize_ensemble(0., 0., 10, dt=0.01)
+        algo.initialize_ensemble(10, dt=0.01)
         kill, survive = algo.selectionstep(algo._levels)
         algo.mutationstep(kill, survive, dt=0.01)
         self.assertEqual(algo._weight, 1-float(kill.size)/10)
