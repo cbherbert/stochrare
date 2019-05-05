@@ -493,6 +493,15 @@ class OrnsteinUhlenbeck1D(StochModel1D):
         return np.array([[dbdx, 2.],
                          [0, -dbdx]])
 
+class DrivenOrnsteinUhlenbeck1D(StochModel1D):
+    """
+    The 1D Ornstein-Uhlenbeck model driven by a periodic forcing:
+        dx_t = theta*(mu-x_t)+A*sin(Omega*t+phi)+sqrt(2*D)*dW_t
+    """
+    def __init__(self, mu, theta, D, A, Omega, phi):
+        StochModel1D.__init__(lambda x, t: theta*(mu-x)+A*np.sin(Omega*t+phi), D)
+
+
 
 class StochModel1D_T(StochModel1D):
     """ Time reversal of a given model """
