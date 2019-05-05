@@ -2,6 +2,7 @@
 Generic class for stochastic processes in arbitrary dimensions
 """
 import numpy as np
+import scipy.sparse
 import scipy.integrate
 
 class StochModel(object):
@@ -146,9 +147,15 @@ class Wiener(StochModel):
         return np.zeros_like(X)
 
 class OrnsteinUhlenbeck(StochModel):
-    """ The Ornstein-Uhlenbeck model """
+    """
+    The Ornstein-Uhlenbeck model
+        dx_t = theta*(mu-x_t)+sqrt(2*D)*dW_t
+
+    theta > 0 and mu are parameters
+    """
     def __init__(self, mu, theta, D):
         super(OrnsteinUhlenbeck, self).__init__(lambda x, t: theta*(mu-x), D)
+        self.theta = theta
 
     def potential(self, X, t):
         """
@@ -156,3 +163,28 @@ class OrnsteinUhlenbeck(StochModel):
         """
         y = self.F(X, t)
         return y.dot(y)/2
+
+    def _instantoneq(self, t, canonical_coords):
+        """
+        Equations of motion for instanton dynamics.
+        These are just the Hamilton equations corresponding to the action.
+
+        canonical_coords should be a 2n-dimensional numpy.ndarray
+        containing canonical coordinates x and momenta p.
+
+        Return a numpy.ndarray of length 2n containing the derivatives xdot and pdot.
+        """
+        n = len(canonical_coords)/2
+        x = canonical_coords[:n]
+        p = canonical_coords[n:]
+        return np.concatenate((2.*p+self.F(x, t), self.theta*p))
+
+    def _instantoneq_jac(self, t, canonical_coords):
+        """
+        Jacobian of instanton dynamics.
+
+        canonical_coords should be a 2n-dimensional numpy.ndarray
+        containing canonical coordinates and momenta.
+        """
+        id3 = scipy.sparse.eye(3)
+        return scipy.sparse.bmat([[-self.theta*id3, 2*id3], [None, self.theta.id3]]).toarray()
