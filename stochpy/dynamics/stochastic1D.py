@@ -44,6 +44,32 @@ class StochModel1D(object):
         """ Apply time reversal and return the new model """
         return StochModel1D_T(lambda x, t: -self.F(x, -t), self.D0)
 
+    def trajectory_numpy(self, x0, t0, **kwargs):
+        """
+        Integrate a trajectory with given initial condition (t0,x0)
+        Optional arguments:
+        - dt: float, the time step
+        - T: float, the integration time (i.e. the duration of the trajectory)
+        - finite: boolean, whether to filter output to return only finite values (default False)
+
+        This is the fastest way I have found to build the array directly using numpy.ndarray object
+        It still takes twice as much time as building a list and casting it to a numpy.ndarray.
+        """
+        dt = kwargs.get('dt', self.default_dt)
+        time = kwargs.get('T', 10.0)
+        if dt < 0:
+            time = -time
+        precision = kwargs.get('precision', np.float32)
+        num = int(time/dt)+1
+        t = np.linspace(t0, t0+dt*int(time/dt), num=num, dtype=precision)
+        x = np.full(num, x0, dtype=precision)
+        for index in range(1, num):
+            x[index] = x[index-1] + self.increment(x[index-1], t[index-1], dt=dt)
+        if kwargs.get('finite', False):
+            t = t[np.isfinite(x)]
+            x = x[np.isfinite(x)]
+        return t[t <= t0+time], x[t <= t0+time]
+
     def trajectory(self, x0, t0, **kwargs):
         """
         Integrate a trajectory with given initial condition (t0,x0)
