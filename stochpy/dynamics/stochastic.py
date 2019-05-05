@@ -2,10 +2,14 @@
 Generic class for stochastic processes in arbitrary dimensions
 """
 import numpy as np
+import scipy.integrate
 
 class StochModel(object):
     """
-    Generic class for stochastic processes in arbitrary dimensions
+    Generic class for stochastic processes in arbitrary dimensions.
+
+    More precisely, this class is currently limited to a special case of stochastic differential
+    equations: deterministic vector fields perturbed by white noise.
     """
 
     default_dt = 0.1
@@ -75,6 +79,58 @@ class StochModel(object):
         while True:
             time, obs = zip(*[next(gen) for gen in gens])
             yield np.average(time, axis=0), np.average(obs, axis=0)
+
+    def instanton(self, x0, p0, *args, **kwargs):
+        """
+        Numerical integration of the equations of motion for instantons.
+        x0 and p0 are the initial conditions.
+        Return the instanton trajectory (t,x).
+        """
+        solver = kwargs.pop('solver', 'odeint')
+        scheme = kwargs.pop('integrator', 'dopri5')
+        times = np.sort(args)
+        if solver == 'odeint':
+            x = scipy.integrate.odeint(self._instantoneq, np.concatenate((x0, p0)), times,
+                                       Dfun=self._instantoneq_jac, tfirst=True, **kwargs)
+        elif solver == 'odeclass':
+            integ = scipy.integrate.ode(self._instantoneq,
+                                        jac=self._instantoneq_jac).set_integrator(scheme, **kwargs)
+            integ.set_initial_value(np.concatenate((x0, p0)), t=times[0])
+            x = np.array([integ.integrate(t) for t in times])
+        return times, x
+
+    def _instantoneq(self, t, canonical_coords):
+        """
+        Equations of motion for instanton dynamics.
+        These are just the Hamilton equations corresponding to the action.
+
+        canonical_coords should be a 2n-dimensional numpy.ndarray
+        containing canonical coordinates and momenta.
+
+        Return a numpy.ndarray of length 2n containing the derivatives xdot and pdot.
+        """
+        n = len(canonical_coords)/2
+        x = canonical_coords[:n]
+        p = canonical_coords[n:]
+        raise NotImplementedError("Generic instanton equations not yet implemented")
+    #     return np.concatenate((2.*p+self.F(x, t),
+    #                            -np.dot(p, derivative(self.F, x, dx=1e-6, args=(t, )))))
+
+    def _instantoneq_jac(self, t, canonical_coords):
+        """
+        Jacobian of instanton dynamics.
+
+        canonical_coords should be a 2n-dimensional numpy.ndarray
+        containing canonical coordinates and momenta.
+        """
+        n = len(canonical_coords)/2
+        x = canonical_coords[:n]
+        p = canonical_coords[n:]
+        raise NotImplementedError("Generic instanton equations Jacobian not yet implemented")
+
+        # dbdx = derivative(self.F, x, dx=1e-6, args=(t, ))
+        # return np.array([[dbdx, 2.],
+        #                  [-p*derivative(self.F, x, n=2, dx=1e-6, args=(t, )), -dbdx]])
 
 class Wiener(StochModel):
     """ The Wiener process """
