@@ -9,40 +9,26 @@ from scipy.misc import derivative
 from .. import edpy
 from .. import fokkerplanck as fp
 
-class StochModel1D(object):
+class DiffusionProcess1D:
     """
-    The generic class from which all the models I consider derive.
-    It corresponds to the family of 1D SDEs dx_t = F(x_t,t)dt + sqrt(2*D0)dW_t,
+    Generic class for 1D diffusion processes.
+
+    It corresponds to the family of 1D SDEs dx_t = F(x_t, t)dt + sigma(x_t, t)dW_t,
     where F is a time-dependent vector field and W the Wiener process.
     """
-
     default_dt = 0.1
 
-    def __init__(self, vecfield, Damp):
+    def __init__(self, F, sigma):
         """
-        vecfield: function of two variables (x,t)
-        Damp: amplitude of the diffusion term (noise)
+        F and sigma are functions of two variables (x,t)
         """
-        self.F = vecfield
-        self.D0 = Damp
-
-    def potential(self, X, t):
-        """
-        Integrate the vector field to obtain the value of the underlying potential
-        at the input points.
-        Caveat: This works only because we restrict ourselves to 1D models.
-        """
-        fun = interp1d(X, -self.F(X, t))
-        return np.array([integrate.quad(fun, 0.0, x)[0] for x in X])
+        self.drift = F
+        self.diffusion = sigma
 
     def increment(self, x, t, **kwargs):
-        """ Return F(x_t,t)dt + sqrt(2*D0)dW_t """
+        """ Return F(x_t, t)dt + sigma(x_t, t)dW_t """
         dt = kwargs.get('dt', self.default_dt)
-        return self.F(x, t) * dt + np.sqrt(2.0*self.D0*dt)*np.random.normal(0.0, 1.0)
-
-    def time_reversal(self):
-        """ Apply time reversal and return the new model """
-        return StochModel1D_T(lambda x, t: -self.F(x, -t), self.D0)
+        return self.drift(x, t) * dt + self.diffusion(x, t)*np.sqrt(dt)*np.random.normal(0.0, 1.0)
 
     def trajectory_numpy(self, x0, t0, **kwargs):
         """
@@ -94,6 +80,54 @@ class StochModel1D(object):
             t = t[np.isfinite(x)]
             x = x[np.isfinite(x)]
         return t[t <= t0+time], x[t <= t0+time]
+
+    def trajectory_conditional(self, x0, t0, pred, **kwargs):
+        """
+        Return a trajectory satisfying a condition defined by the predicate pred.
+        """
+        while True:
+            t, x = self.trajectory(x0, t0, **kwargs)
+            if pred(t, x):
+                break
+        return t, x
+
+
+class ConstantDiffusionProcess1D(DiffusionProcess1D):
+    """
+    Diffusion process with constant diffusion coefficient.
+
+    It corresponds to the family of 1D SDEs dx_t = F(x_t,t)dt + sqrt(2*D0)dW_t,
+    where F is a time-dependent vector field and W the Wiener process.
+    """
+
+    default_dt = 0.1
+
+    def __init__(self, vecfield, Damp):
+        """
+        vecfield: function of two variables (x,t)
+        Damp: amplitude of the diffusion term (noise), scalar
+        """
+        DiffusionProcess1D.__init__(self, vecfield, lambda x,t: np.sqrt(2*Damp))
+        self.F = vecfield # We keep this temporarily for backward compatiblity
+        self.D0 = Damp    # We keep this temporarily for backward compatiblity
+
+    def potential(self, X, t):
+        """
+        Integrate the vector field to obtain the value of the underlying potential
+        at the input points.
+        Caveat: This works only because we restrict ourselves to 1D models.
+        """
+        fun = interp1d(X, -self.F(X, t))
+        return np.array([integrate.quad(fun, 0.0, x)[0] for x in X])
+
+    def increment(self, x, t, **kwargs):
+        """ Return F(x_t,t)dt + sqrt(2*D0)dW_t """
+        dt = kwargs.get('dt', self.default_dt)
+        return self.F(x, t) * dt + np.sqrt(2.0*self.D0*dt)*np.random.normal(0.0, 1.0)
+
+    def time_reversal(self):
+        """ Apply time reversal and return the new model """
+        return StochModel1D_T(lambda x, t: -self.F(x, -t), self.D0)
 
     def traj_cond_gen(self, x0, t0, tau, M, **kwargs):
         """Generate trajectories conditioned on the first-passage time tau at value M.
@@ -443,7 +477,7 @@ class StochModel1D(object):
             yield integrate.trapz(p**2, t[1:-1])
 
 
-class Wiener1D(StochModel1D):
+class Wiener1D(ConstantDiffusionProcess1D):
     """ The 1D Wiener process """
     def __init__(self, D=1):
         super(Wiener1D, self).__init__(lambda x, t: 0, D)
@@ -462,7 +496,7 @@ class Wiener1D(StochModel1D):
         return np.exp(-X**2.0/(4.0*self.D0*t))/np.sqrt(4.0*np.pi*self.D0*t)
 
 
-class OrnsteinUhlenbeck1D(StochModel1D):
+class OrnsteinUhlenbeck1D(ConstantDiffusionProcess1D):
     """
     The 1D Ornstein-Uhlenbeck model:
         dx_t = theta*(mu-x_t)+sqrt(2*D)*dW_t
@@ -493,17 +527,17 @@ class OrnsteinUhlenbeck1D(StochModel1D):
         return np.array([[dbdx, 2.],
                          [0, -dbdx]])
 
-class DrivenOrnsteinUhlenbeck1D(StochModel1D):
+class DrivenOrnsteinUhlenbeck1D(ConstantDiffusionProcess1D):
     """
     The 1D Ornstein-Uhlenbeck model driven by a periodic forcing:
         dx_t = theta*(mu-x_t)+A*sin(Omega*t+phi)+sqrt(2*D)*dW_t
     """
     def __init__(self, mu, theta, D, A, Omega, phi):
-        StochModel1D.__init__(lambda x, t: theta*(mu-x)+A*np.sin(Omega*t+phi), D)
+        ConstantDiffusionProcess1D.__init__(self, lambda x, t: theta*(mu-x)+A*np.sin(Omega*t+phi), D)
 
 
 
-class StochModel1D_T(StochModel1D):
+class StochModel1D_T(ConstantDiffusionProcess1D):
     """ Time reversal of a given model """
     def trajectory(self, x0, t0, **kwargs):
         t, x = super(StochModel1D_T, self).trajectory(x0, t0, **kwargs)
