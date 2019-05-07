@@ -124,6 +124,34 @@ class DiffusionProcess1D:
             integ.set_initial_value([x0, p0], times[0])
             return times, [integ.integrate(t)[0] for t in times]
 
+    def _instantoneq(self, t, Y):
+        """
+        Equations of motion for instanton dynamics.
+        These are just the Hamilton equations corresponding to the action.
+
+        Y should be a vector (list or numpy.ndarray) with two items: x=Y[0] and p=Y[1]
+        """
+        x = Y[0]
+        p = Y[1]
+        return [p*self.diffusion(x, t)**2+self.drift(x, t),
+                -p**2*self.diffusion(x, t)*derivative(self.diffusion, x, dx=1e-6, args=(t, ))
+                -p*derivative(self.drift, x, dx=1e-6, args=(t, ))]
+
+    def _instantoneq_jac(self, t, Y):
+        """
+        Jacobian of instanton dynamics.
+
+        Y should be a vector (list or numpy.ndarray) with two items: x=Y[0] and p=Y[1]
+        """
+        x = Y[0]
+        p = Y[1]
+        dbdx = derivative(self.drift, x, dx=1e-6, args=(t, ))
+        d2bdx2 = derivative(self.drift, x, n=2, dx=1e-6, args=(t, ))
+        sigma = self.diffusion(x, t)
+        dsigmadx = derivative(self.diffusion, x, dx=1e-6, args=(t, ))
+        d2sigmadx2 = derivative(self.diffusion, x, n=2, dx=1e-6, args=(t, ))
+        return np.array([[dbdx+2*p*sigma*dsigmadx, sigma**2],
+                         [-p*d2bdx2-p**2*(dsigmadx**2+sigma*d2sigmadx2), -dbdx-2*p*sigma*dsigmadx]])
 
 class ConstantDiffusionProcess1D(DiffusionProcess1D):
     """
