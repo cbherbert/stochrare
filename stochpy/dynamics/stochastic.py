@@ -5,41 +5,42 @@ import numpy as np
 import scipy.sparse
 import scipy.integrate
 
-class StochModel(object):
+class DiffusionProcess:
     """
-    Generic class for stochastic processes in arbitrary dimensions.
+    Generic class for diffusion processes in arbitrary dimensions.
 
-    More precisely, this class is currently limited to a special case of stochastic differential
-    equations: deterministic vector fields perturbed by white noise.
+    It corresponds to the family of SDEs dx_t = F(x_t, t)dt + sigma(x_t, t)dW_t,
+    where F is a time-dependent N-dimensional vector field
+    and W the M-dimensional Wiener process.
+    The diffusion matrix sigma has size NxM.
     """
 
     default_dt = 0.1
 
-    def __init__(self, vecfield, Damp):
+    def __init__(self, vecfield, sigma):
         """
-        vecfield: vector field, function of two variables (x,t)
-        Damp: amplitude of the diffusion term (noise)
+        vecfield: vector field
+        sigma: diffusion coefficient (noise)
 
-        For now we assume that the diffusion matrix is proportional to identity.
-        This is a strong limitation which hopefully should be relaxed soon.
+        vecfield and sigma are functions of two variables (x,t)
         """
-        self.F = vecfield
-        self.D0 = Damp
+        self.drift = vecfield
+        self.diffusion = sigma
 
     def increment(self, x, t, **kwargs):
         """
-        Return F(x_t, t)dt + sqrt(2*D0)dW_t
+        Return F(x_t, t)dt + sigma(x_t, t)dW_t
         x is a n-dimensional vector (in R^n)
         t is the time (a real number)
         """
         dt = kwargs.get('dt', self.default_dt)
         dim = len(x)
-        return self.F(x, t) * dt + np.sqrt(2.0*self.D0*dt)*np.random.normal(0.0, 1.0, dim)
+        return self.drift(x, t)*dt+np.sqrt(dt)*self.diffusion(x, t)@np.random.normal(0.0, 1.0, dim)
 
     def trajectory(self, x0, t0, **kwargs):
         """
         Integrate a trajectory with given initial condition (t0, x0)
-        Optional arugments:
+        Optional arguments:
         - dt: the timestep, forwarded to the increment routine
               (default 0.1, unless overridden by a subclass)
         - T: the time duration of the trajectory (default 10)
@@ -76,9 +77,8 @@ class StochModel(object):
         """
         Compute the sample mean of a time dependent observable
         """
-        gens = [self.generator(x0, t0, nsteps, **kwargs) for _ in range(nsamples)]
-        while True:
-            time, obs = zip(*[next(gen) for gen in gens])
+        for ensemble in zip(*[self.generator(x0, t0, nsteps, **kwargs) for _ in range(nsamples)]):
+            time, obs = zip(*ensemble)
             yield np.average(time, axis=0), np.average(obs, axis=0)
 
     def instanton(self, x0, p0, *args, **kwargs):
@@ -133,10 +133,42 @@ class StochModel(object):
         # return np.array([[dbdx, 2.],
         #                  [-p*derivative(self.F, x, n=2, dx=1e-6, args=(t, )), -dbdx]])
 
-class Wiener(StochModel):
+
+class ConstantDiffusionProcess(DiffusionProcess):
+    """
+    Diffusion process with constant diffusion coefficient.
+    """
+
+    default_dt = 0.1
+
+    def __init__(self, vecfield, Damp, dim):
+        """
+        vecfield: vector field, function of two variables (x,t)
+        Damp: amplitude of the diffusion term (noise), scalar
+        dim: dimension of the system
+
+        In this class of stochastic processes, the diffusion matrix is proportional to identity.
+        """
+        DiffusionProcess.__init__(self, vecfield, (lambda x, t: np.sqrt(2*Damp)*np.eye(dim)))
+        self.D0 = Damp
+        self.dimension = dim
+
+    def increment(self, x, t, **kwargs):
+        """
+        Return F(x_t, t)dt + sqrt(2*D0)dW_t
+        x is a n-dimensional vector (in R^n)
+        t is the time (a real number)
+        """
+        dt = kwargs.get('dt', self.default_dt)
+        if len(x) != self.dimension:
+            raise ValueError('Input vector does not have the right dimension.')
+        return self.drift(x, t)*dt+np.sqrt(2*self.D0*dt)*np.random.normal(0, 1, self.dimension)
+
+
+class Wiener(ConstantDiffusionProcess):
     """ The Wiener process """
-    def __init__(self, D=1):
-        super(Wiener, self).__init__(lambda x, t: 0, D)
+    def __init__(self, dim, D=1):
+        super(Wiener, self).__init__(lambda x, t: 0, D, dim)
 
     @classmethod
     def potential(cls, X, t):
@@ -146,22 +178,23 @@ class Wiener(StochModel):
         """
         return np.zeros_like(X)
 
-class OrnsteinUhlenbeck(StochModel):
+
+class OrnsteinUhlenbeck(ConstantDiffusionProcess):
     """
     The Ornstein-Uhlenbeck model
         dx_t = theta*(mu-x_t)+sqrt(2*D)*dW_t
 
     theta > 0 and mu are parameters
     """
-    def __init__(self, mu, theta, D):
-        super(OrnsteinUhlenbeck, self).__init__(lambda x, t: theta*(mu-x), D)
+    def __init__(self, mu, theta, D, dim):
+        super(OrnsteinUhlenbeck, self).__init__(lambda x, t: theta*(mu-x), D, dim)
         self.theta = theta
 
     def potential(self, X, t):
         """
         Return the potential from which the force derives
         """
-        y = self.F(X, t)
+        y = self.drift(X, t)
         return y.dot(y)/2
 
     def _instantoneq(self, t, canonical_coords):

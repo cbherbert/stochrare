@@ -11,12 +11,22 @@ import stochpy.dynamics.stochastic1D as stochastic1d
 import stochpy.timeseries as ts
 import stochpy.ams as ams
 
-class TestPotential(unittest.TestCase):
+class TestStochastic(unittest.TestCase):
     def test_wiener_potential(self):
         data = np.ones(10)
-        np.testing.assert_array_equal(stochastic.Wiener().potential(data, 0.), np.zeros_like(data))
+        np.testing.assert_array_equal(stochastic.Wiener(1).potential(data, 0.), np.zeros_like(data))
         data = np.ones((10, 10))
-        np.testing.assert_array_equal(stochastic.Wiener().potential(data, 0.), np.zeros_like(data))
+        np.testing.assert_array_equal(stochastic.Wiener(2).potential(data, 0.), np.zeros_like(data))
+
+    def test_increment(self):
+        dimension = 2
+        model = stochastic.DiffusionProcess(lambda x, t: 0,
+                                            lambda x, t: np.sqrt(2)*np.eye(dimension))
+        np.random.seed(seed=100)
+        increment_wiener = stochastic.Wiener(dimension).increment(np.zeros(dimension), 0)
+        np.random.seed(seed=100)
+        increment_diffusion = model.increment(np.zeros(dimension), 0)
+        np.testing.assert_allclose(increment_wiener, increment_diffusion)
 
 class TestRareEvents(unittest.TestCase):
     def test_blockmaximum(self):
