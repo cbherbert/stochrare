@@ -5,7 +5,7 @@ import numpy as np
 
 class DiffusionProcess:
     """
-    Generic class for diffusion processes in arbitrary dimensions
+    Generic class for diffusion processes in arbitrary dimensions.
 
     It corresponds to the family of SDEs dx_t = F(x_t, t)dt + sigma(x_t, t)dW_t,
     where F is a time-dependent N-dimensional vector field
@@ -81,7 +81,7 @@ class DiffusionProcess:
 
 class ConstantDiffusionProcess(DiffusionProcess):
     """
-    Diffusion process with constant diffusion coefficient
+    Diffusion process with constant diffusion coefficient.
     """
 
     default_dt = 0.1
