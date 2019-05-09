@@ -81,25 +81,6 @@ class DiffusionProcess:
             time, obs = zip(*ensemble)
             yield np.average(time, axis=0), np.average(obs, axis=0)
 
-    def instanton(self, x0, p0, *args, **kwargs):
-        """
-        Numerical integration of the equations of motion for instantons.
-        x0 and p0 are the initial conditions.
-        Return the instanton trajectory (t,x).
-        """
-        solver = kwargs.pop('solver', 'odeint')
-        scheme = kwargs.pop('integrator', 'dopri5')
-        times = np.sort(args)
-        if solver == 'odeint':
-            x = scipy.integrate.odeint(self._instantoneq, np.concatenate((x0, p0)), times,
-                                       Dfun=self._instantoneq_jac, tfirst=True, **kwargs)
-        elif solver == 'odeclass':
-            integ = scipy.integrate.ode(self._instantoneq,
-                                        jac=self._instantoneq_jac).set_integrator(scheme, **kwargs)
-            integ.set_initial_value(np.concatenate((x0, p0)), t=times[0])
-            x = np.array([integ.integrate(t) for t in times])
-        return times, x
-
     def _instantoneq(self, t, canonical_coords):
         """
         Equations of motion for instanton dynamics.
