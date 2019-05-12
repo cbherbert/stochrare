@@ -30,6 +30,12 @@ class DiffusionProcess1D:
         dt = kwargs.get('dt', self.default_dt)
         return self.drift(x, t) * dt + self.diffusion(x, t)*np.sqrt(dt)*np.random.normal(0.0, 1.0)
 
+    def update(self, x, t, **kwargs):
+        """
+        Return the next sample for the time-discretized process
+        """
+        return x + self.increment(x, t, **kwargs)
+
     def trajectory_numpy(self, x0, t0, **kwargs):
         """
         Integrate a trajectory with given initial condition (t0,x0)
@@ -41,17 +47,17 @@ class DiffusionProcess1D:
         This is the fastest way I have found to build the array directly using numpy.ndarray object
         It still takes twice as much time as building a list and casting it to a numpy.ndarray.
         """
-        dt = kwargs.get('dt', self.default_dt)
-        time = kwargs.get('T', 10.0)
+        dt = kwargs.pop('dt', self.default_dt)
+        time = kwargs.pop('T', 10.0)
         if dt < 0:
             time = -time
-        precision = kwargs.get('precision', np.float32)
+        precision = kwargs.pop('precision', np.float32)
         num = int(time/dt)+1
         t = np.linspace(t0, t0+dt*int(time/dt), num=num, dtype=precision)
         x = np.full(num, x0, dtype=precision)
         for index in range(1, num):
-            x[index] = x[index-1] + self.increment(x[index-1], t[index-1], dt=dt)
-        if kwargs.get('finite', False):
+            x[index] = self.update(x[index-1], t[index-1], dt=dt, **kwargs)
+        if kwargs.pop('finite', False):
             t = t[np.isfinite(x)]
             x = x[np.isfinite(x)]
         return t[t <= t0+time], x[t <= t0+time]
@@ -66,17 +72,17 @@ class DiffusionProcess1D:
         """
         t = [t0]
         x = [x0]
-        dt = kwargs.get('dt', self.default_dt)
-        time = kwargs.get('T', 10.0)
-        precision = kwargs.get('precision', np.float32)
+        dt = kwargs.pop('dt', self.default_dt)
+        time = kwargs.pop('T', 10.0)
+        precision = kwargs.pop('precision', np.float32)
         if dt < 0:
             time = -time
         while t[-1] <= t0+time:
             t.append(t[-1] + dt)
-            x.append(x[-1] + self.increment(x[-1], t[-1], dt=dt))
+            x.append(self.update(x[-1], t[-1], dt=dt, **kwargs))
         t = np.array(t, dtype=precision)
         x = np.array(x, dtype=precision)
-        if kwargs.get('finite', False):
+        if kwargs.pop('finite', False):
             t = t[np.isfinite(x)]
             x = x[np.isfinite(x)]
         return t[t <= t0+time], x[t <= t0+time]
@@ -148,7 +154,7 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
             x = [x0]
             t = [t0]
             while (x[-1] <= M and t[-1] <= tau):
-                x += [x[-1] + self.increment(x[-1], t[-1], dt=dt)]
+                x += [self.update(x[-1], t[-1], dt=dt)]
                 t += [t[-1] + dt]
             if (x[-1] > M and np.abs(t[-1]-tau) < tau_tol):
                 num -= 1
@@ -245,7 +251,7 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
         t = t0
         dt = kwargs.get('dt', self.default_dt)
         while x <= A:
-            x += self.increment(x, t, dt=dt)
+            x = self.update(x, t, dt=dt)
             t += dt
         return t
 
@@ -502,8 +508,24 @@ class OrnsteinUhlenbeck1D(ConstantDiffusionProcess1D):
         dx_t = theta*(mu-x_t)+sqrt(2*D)*dW_t
     """
     def __init__(self, mu, theta, D):
+        self.theta = theta
         self.d_f = (lambda x, t: -theta)
         super(OrnsteinUhlenbeck1D, self).__init__(lambda x, t: theta*(mu-x), D)
+
+    def update(self, x, t, **kwargs):
+        """
+        Return the next sample for the time-discretized process.
+
+        For the Ornstein-Uhlenbeck process, there is an exact method; see
+        D. T. Gillespie, Exact numerical simulation of the Ornstein-Uhlenbeck process and its
+                         integral, Phys. Rev. E 54, 2084 (1996).
+        """
+        if kwargs.pop('method', 'gillespie') == 'gillespie':
+            dt = kwargs.get('dt', self.default_dt)
+            xx = x*np.exp(-self.theta*dt)+np.sqrt(self.D0/self.theta*(1-np.exp(-2*self.theta*dt)))*np.random.normal(0.0, 1.0)
+        else:
+            xx = ConstantDiffusionProcess1D.update(self, x, t, **kwargs)
+        return xx
 
     def _instantoneq(self, t, Y):
         """
