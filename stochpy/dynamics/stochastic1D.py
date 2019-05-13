@@ -1,5 +1,5 @@
 """
-Generic class for 1D stochastic processes
+Module for simulating 1D diffusion processes.
 """
 import numpy as np
 import matplotlib.pyplot as plt
@@ -35,7 +35,13 @@ class DiffusionProcess1D:
 
     def update(self, x, t, **kwargs):
         """
-        Return the next sample for the time-discretized process
+        Return the next sample for the time-discretized process, using the Euler-Maruyama method
+
+        Refs:
+        - P. E. Kloeden and E. Platen, Numerical Solution of Stochastic Differential Equations,
+          Springer (1992)
+        - G. Maruyama, Continuous Markov processes and stochastic equations, Rend. Circ. Mat. Palermo
+          4, 48-90 (1955)
         """
         return x + self.increment(x, t, **kwargs)
 
