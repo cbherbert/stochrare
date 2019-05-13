@@ -8,6 +8,8 @@ from scipy.interpolate import interp1d
 from scipy.misc import derivative
 from .. import edpy
 from .. import fokkerplanck as fp
+from ..utils import pseudorand
+
 
 class DiffusionProcess1D:
     """
@@ -18,12 +20,13 @@ class DiffusionProcess1D:
     """
     default_dt = 0.1
 
-    def __init__(self, F, sigma):
+    def __init__(self, F, sigma, **kwargs):
         """
         F and sigma are functions of two variables (x,t)
         """
         self.drift = F
         self.diffusion = sigma
+        self.__deterministic__ = kwargs.get('deterministic', False)
 
     def increment(self, x, t, **kwargs):
         """ Return F(x_t, t)dt + sigma(x_t, t)dW_t """
@@ -36,6 +39,7 @@ class DiffusionProcess1D:
         """
         return x + self.increment(x, t, **kwargs)
 
+    @pseudorand
     def trajectory_numpy(self, x0, t0, **kwargs):
         """
         Integrate a trajectory with given initial condition (t0,x0)
@@ -62,6 +66,7 @@ class DiffusionProcess1D:
             x = x[np.isfinite(x)]
         return t[t <= t0+time], x[t <= t0+time]
 
+    @pseudorand
     def trajectory(self, x0, t0, **kwargs):
         """
         Integrate a trajectory with given initial condition (t0,x0)
@@ -108,12 +113,12 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
 
     default_dt = 0.1
 
-    def __init__(self, vecfield, Damp):
+    def __init__(self, vecfield, Damp, **kwargs):
         """
         vecfield: function of two variables (x,t)
         Damp: amplitude of the diffusion term (noise), scalar
         """
-        DiffusionProcess1D.__init__(self, vecfield, lambda x,t: np.sqrt(2*Damp))
+        DiffusionProcess1D.__init__(self, vecfield, lambda x,t: np.sqrt(2*Damp), **kwargs)
         self.F = vecfield # We keep this temporarily for backward compatiblity
         self.D0 = Damp    # We keep this temporarily for backward compatiblity
 
@@ -485,8 +490,8 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
 
 class Wiener1D(ConstantDiffusionProcess1D):
     """ The 1D Wiener process """
-    def __init__(self, D=1):
-        super(Wiener1D, self).__init__(lambda x, t: 0, D)
+    def __init__(self, D=1, **kwargs):
+        super(Wiener1D, self).__init__(lambda x, t: 0, D, **kwargs)
 
     def potential(self, X, t):
         """
@@ -507,10 +512,10 @@ class OrnsteinUhlenbeck1D(ConstantDiffusionProcess1D):
     The 1D Ornstein-Uhlenbeck model:
         dx_t = theta*(mu-x_t)+sqrt(2*D)*dW_t
     """
-    def __init__(self, mu, theta, D):
+    def __init__(self, mu, theta, D, **kwargs):
         self.theta = theta
         self.d_f = (lambda x, t: -theta)
-        super(OrnsteinUhlenbeck1D, self).__init__(lambda x, t: theta*(mu-x), D)
+        super(OrnsteinUhlenbeck1D, self).__init__(lambda x, t: theta*(mu-x), D, **kwargs)
 
     def update(self, x, t, **kwargs):
         """
@@ -554,8 +559,8 @@ class DrivenOrnsteinUhlenbeck1D(ConstantDiffusionProcess1D):
     The 1D Ornstein-Uhlenbeck model driven by a periodic forcing:
         dx_t = theta*(mu-x_t)+A*sin(Omega*t+phi)+sqrt(2*D)*dW_t
     """
-    def __init__(self, mu, theta, D, A, Omega, phi):
-        ConstantDiffusionProcess1D.__init__(self, lambda x, t: theta*(mu-x)+A*np.sin(Omega*t+phi), D)
+    def __init__(self, mu, theta, D, A, Omega, phi, **kwargs):
+        ConstantDiffusionProcess1D.__init__(self, lambda x, t: theta*(mu-x)+A*np.sin(Omega*t+phi), D, **kwargs)
 
 
 
