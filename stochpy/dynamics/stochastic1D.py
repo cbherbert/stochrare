@@ -28,6 +28,15 @@ class DiffusionProcess1D:
         self.diffusion = sigma
         self.__deterministic__ = kwargs.get('deterministic', False)
 
+    def potential(self, X, t):
+        """
+        Integrate the vector field to obtain the value of the underlying potential
+        at the input points.
+        Caveat: This works only because we restrict ourselves to 1D models.
+        """
+        fun = interp1d(X, -self.drift(X, t))
+        return np.array([integrate.quad(fun, 0.0, x)[0] for x in X])
+
     def increment(self, x, t, **kwargs):
         """ Return F(x_t, t)dt + sigma(x_t, t)dW_t """
         dt = kwargs.get('dt', self.default_dt)
@@ -108,6 +117,41 @@ class DiffusionProcess1D:
                 break
         return t, x
 
+    @classmethod
+    def trajectoryplot(cls, *args, **kwargs):
+        """ Plot previously computed trajectories """
+        _ = plt.figure()
+        ax = plt.axes()
+        lines = []
+        for t, x in args:
+            lines += ax.plot(t, x)
+
+        ax.grid()
+        ax.set_ylim(kwargs.get('ylim', ax.get_ylim()))
+        ax.set_xlim(kwargs.get('xlim', ax.get_xlim()))
+        ax.set_xlabel('$t$')
+        ax.set_ylabel('$x(t)$')
+        plottitle = kwargs.get('title', "")
+        if plottitle != "":
+            plt.title(plottitle)
+
+        labels = kwargs.get('labels', [])
+        if labels != []:
+            plt.legend(lines, labels, bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+
+        cls._trajectoryplot_decorate(*args, axis=ax, **kwargs)
+        plt.show()
+
+    @classmethod
+    def _trajectoryplot_decorate(cls, *args, **kwargs):
+        pass
+
+    def _fpthsol(self, X, t, **kwargs):
+        """ Analytic solution of the Fokker-Planck equation, when it is known.
+        In general this is an empty method but subclasses corresponding to stochastic processes
+        for which theoretical results exists should override it."""
+        return NotImplemented
+
 
 class ConstantDiffusionProcess1D(DiffusionProcess1D):
     """
@@ -127,15 +171,6 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
         DiffusionProcess1D.__init__(self, vecfield, lambda x,t: np.sqrt(2*Damp), **kwargs)
         self.F = vecfield # We keep this temporarily for backward compatiblity
         self.D0 = Damp    # We keep this temporarily for backward compatiblity
-
-    def potential(self, X, t):
-        """
-        Integrate the vector field to obtain the value of the underlying potential
-        at the input points.
-        Caveat: This works only because we restrict ourselves to 1D models.
-        """
-        fun = interp1d(X, -self.F(X, t))
-        return np.array([integrate.quad(fun, 0.0, x)[0] for x in X])
 
     def increment(self, x, t, **kwargs):
         """ Return F(x_t,t)dt + sqrt(2*D0)dW_t """
@@ -175,45 +210,10 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
                     x = fun(t)
                 yield t, x
 
-    @classmethod
-    def trajectoryplot(cls, *args, **kwargs):
-        """ Plot previously computed trajectories """
-        _ = plt.figure()
-        ax = plt.axes()
-        lines = []
-        for t, x in args:
-            lines += ax.plot(t, x)
-
-        ax.grid()
-        ax.set_ylim(kwargs.get('ylim', ax.get_ylim()))
-        ax.set_xlim(kwargs.get('xlim', ax.get_xlim()))
-        ax.set_xlabel('$t$')
-        ax.set_ylabel('$x(t)$')
-        plottitle = kwargs.get('title', "")
-        if plottitle != "":
-            plt.title(plottitle)
-
-        labels = kwargs.get('labels', [])
-        if labels != []:
-            plt.legend(lines, labels, bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
-
-        cls._trajectoryplot_decorate(*args, axis=ax, **kwargs)
-        plt.show()
-
-    @classmethod
-    def _trajectoryplot_decorate(cls, *args, **kwargs):
-        pass
-
     def blowuptime(self, x0, t0, **kwargs):
         """ Compute the last time with finite values, for one realization"""
         t, x = self.trajectory(x0, t0, **kwargs)
         return t[np.isfinite(x)][-1]
-
-    def _fpthsol(self, X, t, **kwargs):
-        """ Analytic solution of the Fokker-Planck equation, when it is known.
-        In general this is an empty method but subclasses corresponding to stochastic processes
-        for which theoretical results exists should override it."""
-        pass
 
     def pdfplot(self, *args, **kwargs):
         """ Plot the pdf P(x,t) at various times """
