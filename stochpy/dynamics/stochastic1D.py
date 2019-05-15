@@ -1,5 +1,33 @@
 """
-Module for simulating 1D diffusion processes.
+Simulating 1D diffusion processes
+=================================
+
+.. currentmodule:: stochpy.dynamics.stochastic1D
+
+This module defines the `DiffusionProcess1D` class, representing diffusion processes with
+arbitrary drift and diffusion coefficients in 1D.
+
+This class can be subclassed for specific diffusion processes for which methods can be specialized,
+both to simplify the code (e.g. directly enter analytical formulae when they are available) and for
+performance.
+As an exemple of this mechanism, we also provide in this module the `ConstantDiffusionProcess1D`
+class, for which the diffusion term is constant, the `OrnsteinUhlenbeck1D` class representing the
+particular case of the Ornstein-Uhlenbeck process, and the `Wiener1D` class corresponding to
+Brownian motion.
+These classes form a hierarchy deriving from the base class, `DiffusionProcess1D`.
+
+.. autoclass:: DiffusionProcess1D
+   :members:
+
+.. autoclass:: ConstantDiffusionProcess1D
+   :members:
+
+.. autoclass:: OrnsteinUhlenbeck1D
+   :members:
+
+.. autoclass:: Wiener1D
+   :members:
+
 """
 import numpy as np
 import matplotlib.pyplot as plt
@@ -12,27 +40,48 @@ from ..utils import pseudorand
 
 
 class DiffusionProcess1D:
-    """
+    r"""
     Generic class for 1D diffusion processes.
 
-    It corresponds to the family of 1D SDEs dx_t = F(x_t, t)dt + sigma(x_t, t)dW_t,
-    where F is a time-dependent vector field and W the Wiener process.
+    It corresponds to the family of 1D SDEs :math:`dx_t = F(x_t, t)dt + \sigma(x_t, t)dW_t`,
+    where :math:`F` is a time-dependent vector field and :math:`W` the Wiener process.
+
+    Parameters
+    ----------
+    vecfield : function with two arguments
+        The vector field :math:`F(x, t)`.
+    sigma : function with two arguments
+        The diffusion coefficient :math:`\sigma(x, t)`.
     """
     default_dt = 0.1
 
-    def __init__(self, F, sigma, **kwargs):
+    def __init__(self, vecfield, sigma, **kwargs):
         """
         F and sigma are functions of two variables (x,t)
         """
-        self.drift = F
+        self.drift = vecfield
         self.diffusion = sigma
         self.__deterministic__ = kwargs.get('deterministic', False)
 
     def potential(self, X, t):
         """
-        Integrate the vector field to obtain the value of the underlying potential
+        Compute the potential from which the force derives.
+
+        Parameters
+        ----------
+        X : ndarray
+            The points where we want to compute the potential.
+
+        Returns
+        -------
+        V : ndarray
+            The potential from which the force derives, at the given points.
+
+        Notes
+        -----
+        We integrate the vector field to obtain the value of the underlying potential
         at the input points.
-        Caveat: This works only because we restrict ourselves to 1D models.
+        Caveat: This works only for 1D dynamics.
         """
         fun = interp1d(X, -self.drift(X, t))
         return np.array([integrate.quad(fun, 0.0, x)[0] for x in X])
@@ -83,12 +132,32 @@ class DiffusionProcess1D:
 
     @pseudorand
     def trajectory(self, x0, t0, **kwargs):
-        """
-        Integrate a trajectory with given initial condition (t0,x0)
-        Optional arguments:
-        - dt: float, the time step
-        - T: float, the integration time (i.e. the duration of the trajectory)
-        - finite: boolean, whether to filter output to return only finite values (default False)
+        r"""
+        Integrate the SDE with given initial condition.
+
+        Parameters
+        ----------
+        x0: float
+            The initial position.
+        t0: float
+            The initial time.
+
+        Keyword Arguments
+        -----------------
+        dt: float
+            The time step, forwarded to the increment routine
+            (default 0.1, unless overridden by a subclass).
+        T: float
+            The time duration of the trajectory (default 10).
+        finite: bool
+            Filter finite values before returning trajectory (default False).
+
+        Returns
+        -------
+        t, x: ndarray, ndarray
+            Time-discrete sample path for the stochastic process with initial conditions (t0, x0).
+            The array t contains the time discretization and x the value of the sample path
+            at these instants.
         """
         t = [t0]
         x = [x0]
@@ -108,8 +177,34 @@ class DiffusionProcess1D:
         return t[t <= t0+time], x[t <= t0+time]
 
     def trajectory_conditional(self, x0, t0, pred, **kwargs):
-        """
-        Return a trajectory satisfying a condition defined by the predicate pred.
+        r"""
+        Compute sample path satisfying arbitrary condition.
+
+        Parameters
+        ----------
+        x0: float
+            The initial position.
+        t0: float
+            The initial time.
+        pred: function with two arguments
+            The predicate to select trajectories.
+
+        Keyword Arguments
+        -----------------
+        dt: float
+            The time step, forwarded to the increment routine
+            (default 0.1, unless overridden by a subclass).
+        T: float
+            The time duration of the trajectory (default 10).
+        finite: bool
+            Filter finite values before returning trajectory (default False).
+
+        Returns
+        -------
+        t, x: ndarray, ndarray
+            Time-discrete sample path for the stochastic process with initial conditions (t0, x0).
+            The array t contains the time discretization and x the value of the sample path
+            at these instants.
         """
         while True:
             t, x = self.trajectory(x0, t0, **kwargs)
@@ -154,11 +249,24 @@ class DiffusionProcess1D:
 
 
 class ConstantDiffusionProcess1D(DiffusionProcess1D):
-    """
-    Diffusion process with constant diffusion coefficient.
+    r"""
+    Diffusion processes in 1D with constant diffusion coefficient.
 
-    It corresponds to the family of 1D SDEs dx_t = F(x_t,t)dt + sqrt(2*D0)dW_t,
-    where F is a time-dependent vector field and W the Wiener process.
+    It corresponds to the family of SDEs :math:`dx_t = F(x_t, t)dt + \sigma dW_t`,
+    where :math:`F` is a time-dependent vector field and :math:`W` the Wiener process.
+    The diffusion coefficient :math:`\sigma` is independent of space and time.
+
+    Parameters
+    ----------
+    vecfield : function with two arguments
+        The vector field :math:`F(x, t)`.
+    Damp : float
+        The amplitude of the noise.
+
+    Notes
+    -----
+    The diffusion coefficient is given by :math:`\sigma=\sqrt{2\text{Damp}}`.
+    This convention leads to simpler expressions, for instance for the Fokker-Planck equations.
     """
 
     default_dt = 0.1
@@ -168,7 +276,7 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
         vecfield: function of two variables (x,t)
         Damp: amplitude of the diffusion term (noise), scalar
         """
-        DiffusionProcess1D.__init__(self, vecfield, lambda x,t: np.sqrt(2*Damp), **kwargs)
+        DiffusionProcess1D.__init__(self, vecfield, lambda x, t: np.sqrt(2*Damp), **kwargs)
         self.F = vecfield # We keep this temporarily for backward compatiblity
         self.D0 = Damp    # We keep this temporarily for backward compatiblity
 
@@ -310,30 +418,37 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
             p = 0.5*(xdot-self.F(x[1:-1], t[1:-1]))
             yield integrate.trapz(p**2, t[1:-1])
 
-
-class Wiener1D(ConstantDiffusionProcess1D):
-    """ The 1D Wiener process """
-    def __init__(self, D=1, **kwargs):
-        super(Wiener1D, self).__init__(lambda x, t: 0, D, **kwargs)
-
-    def potential(self, X, t):
-        """
-        Useless (and potentially source of errors) to call the general potential routine
-        since it is trivially zero here
-        """
-        return np.zeros_like(X)
-
-    def _fpthsol(self, X, t, **kwargs):
-        """ Analytic solution of the heat equation.
-        This should depend on the boundary conditions.
-        Right now, we do as if we were solving on the real axis."""
-        return np.exp(-X**2.0/(4.0*self.D0*t))/np.sqrt(4.0*np.pi*self.D0*t)
-
-
 class OrnsteinUhlenbeck1D(ConstantDiffusionProcess1D):
-    """
-    The 1D Ornstein-Uhlenbeck model:
-        dx_t = theta*(mu-x_t)+sqrt(2*D)*dW_t
+    r"""
+    The 1D Ornstein-Uhlenbeck process.
+
+    It corresponds to the SDE :math:`dx_t = \theta(\mu-x_t)dt + \sqrt{2D} dW_t`,
+    where :math:`\theta>0` and :math:`\mu` are arbitrary coefficients
+    and :math:`D>0` is the amplitude of the noise.
+
+    Parameters
+    ----------
+    mu : float
+        The expectation value.
+    theta : float
+        The inverse of the relaxation time.
+    D : float
+        The amplitude of the noise.
+
+    Notes
+    -----
+    The Ornstein-Uhlenbeck process has been used to model many systems.
+    It was initially introduced to describe the motion of a massive
+    Brownian particle with friction [1]_ .
+    It may also be seen as a diffusion process in a harmonic potential.
+
+    Because many of its properties can be computed analytically, it provides a useful
+    toy model for developing new methods.
+
+    References
+    ----------
+    .. [1] G. E. Uhlenbeck and L. S. Ornstein, "On the theory of Brownian Motion".
+           Phys. Rev. 36, 823–841 (1930).
     """
     def __init__(self, mu, theta, D, **kwargs):
         self.theta = theta
@@ -376,6 +491,55 @@ class OrnsteinUhlenbeck1D(ConstantDiffusionProcess1D):
         dbdx = self.d_f(Y[0], t)
         return np.array([[dbdx, 2.],
                          [0, -dbdx]])
+
+class Wiener1D(OrnsteinUhlenbeck1D):
+    r"""
+    The 1D Wiener process.
+
+    Parameters
+    ----------
+    D : float, optional
+        The amplitude of the noise (default is 1).
+
+    Notes
+    -----
+    The Wiener process is a central object in the theory or stochastic processes,
+    both from a mathematical point of view and for its applications in different scientific fields.
+    We refer to classical textbooks for more information about the Wiener process
+    and Brownian motion.
+    """
+    def __init__(self, D=1, **kwargs):
+        super(Wiener1D, self).__init__(0, 0, D, **kwargs)
+
+    @classmethod
+    def potential(cls, X):
+        r"""
+        Compute the potential from which the force derives.
+
+        Parameters
+        ----------
+        X : ndarray
+            The points where we want to compute the potential.
+
+        Returns
+        -------
+        V : float
+            The potential from which the force derives, at the given points.
+
+        Notes
+        -----
+        The Wiener Process is a trivial gradient system, with vanishing potential.
+        It is useless (and potentially source of errors) to call the general potential routine,
+        so we just return zero directly.
+        """
+        return np.zeros_like(X)
+
+    def _fpthsol(self, X, t, **kwargs):
+        """ Analytic solution of the heat equation.
+        This should depend on the boundary conditions.
+        Right now, we do as if we were solving on the real axis."""
+        return np.exp(-X**2.0/(4.0*self.D0*t))/np.sqrt(4.0*np.pi*self.D0*t)
+
 
 class DrivenOrnsteinUhlenbeck1D(ConstantDiffusionProcess1D):
     """

@@ -1,5 +1,17 @@
 """
-Numerical solver for the Fokker-Planck equations
+Numerical solvers for the Fokker-Planck equations
+=================================================
+
+.. currentmodule:: stochpy.fokkerplanck
+
+This module contains numerical solvers for the Fokker-Planck equations associated to diffusion
+processes.
+
+For now, it only contains a basic finite difference solver for the 1D case.
+
+.. autoclass:: FokkerPlanck1D
+   :members:
+
 """
 import numpy as np
 import scipy.integrate as integrate
