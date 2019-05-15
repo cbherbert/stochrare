@@ -19,7 +19,7 @@ import scipy.sparse as sps
 from . import edpy
 
 
-class FokkerPlanck1D(object):
+class FokkerPlanck1D:
     """
     Solver for the 1D Fokker-Planck equation
 

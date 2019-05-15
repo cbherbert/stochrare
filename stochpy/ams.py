@@ -10,7 +10,7 @@ to complex systems)
 """
 import numpy as np
 
-class AMS(object):
+class AMS:
     """
     Implement the original version of the 'Adaptive Multilevel Splitting Algorithm'
 
