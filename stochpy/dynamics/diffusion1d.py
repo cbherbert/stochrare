@@ -463,7 +463,7 @@ class OrnsteinUhlenbeck1D(ConstantDiffusionProcess1D):
         D. T. Gillespie, Exact numerical simulation of the Ornstein-Uhlenbeck process and its
                          integral, Phys. Rev. E 54, 2084 (1996).
         """
-        if kwargs.pop('method', 'gillespie') == 'gillespie':
+        if kwargs.pop('method', 'gillespie') == 'gillespie' and self.theta != 0:
             dt = kwargs.get('dt', self.default_dt)
             xx = x*np.exp(-self.theta*dt)+np.sqrt(self.D0/self.theta*(1-np.exp(-2*self.theta*dt)))*np.random.normal(0.0, 1.0)
         else:

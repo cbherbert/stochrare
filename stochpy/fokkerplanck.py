@@ -61,7 +61,7 @@ class FokkerPlanck1D:
         return sps.dia_matrix((self.drift(X.grid, t)[1:-1], np.array([0])),
                               shape=(X.N-2, X.N-2))*X.grad_mat() + self.diffusion*X.lapl_mat()
 
-    def _fpbc(self, fdgrid, bc=('absorbing', 'absorbing')):
+    def _fpbc(self, fdgrid, bc=('absorbing', 'absorbing'), **kwargs):
         """ Build the boundary conditions for the Fokker-Planck equation and return it.
         This is useful when at least one of the sides is a reflecting wall. """
         dx = fdgrid.dx
