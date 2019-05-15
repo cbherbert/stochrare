@@ -15,8 +15,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.integrate as integrate
 from scipy.interpolate import interp1d
-import edpy
-import fokkerplanck as fp
+from . import edpy
+from . import fokkerplanck as fp
 
 class FirstPassageProcess:
     """
