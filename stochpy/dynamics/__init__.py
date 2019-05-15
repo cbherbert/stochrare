@@ -12,8 +12,8 @@ For now, only diffusion processes are available.
 .. autosummary::
    :toctree:
 
-   stochastic
-   stochastic1D
+   diffusion
+   diffusion1d
 
 """
-from . import stochastic, stochastic1D
+from . import diffusion, diffusion1d

@@ -2,7 +2,7 @@
 Simulating diffusion processes in arbitrary dimensions
 =================================================================
 
-.. currentmodule:: stochpy.dynamics.stochastic
+.. currentmodule:: stochpy.dynamics.diffusion
 
 This module defines the `DiffusionProcess` class, representing generic diffusion processes with
 arbitrary drift and diffusion coefficients, in arbitrary dimension.

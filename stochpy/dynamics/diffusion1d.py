@@ -2,7 +2,7 @@
 Simulating 1D diffusion processes
 =================================
 
-.. currentmodule:: stochpy.dynamics.stochastic1D
+.. currentmodule:: stochpy.dynamics.diffusion1d
 
 This module defines the `DiffusionProcess1D` class, representing diffusion processes with
 arbitrary drift and diffusion coefficients in 1D.
