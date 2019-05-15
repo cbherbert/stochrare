@@ -11,7 +11,7 @@ setuptools.setup(
     # add url
     description="A package to simulate simple stochastic processes",
     long_description=readme,
-    packages=["stochpy", "stochpy.dynamics"],
+    packages=["stochpy", "stochpy.dynamics", "stochpy.rare"],
     classifiers=[
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",

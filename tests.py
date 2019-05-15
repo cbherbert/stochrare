@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 import stochpy.dynamics.diffusion as diffusion
 import stochpy.dynamics.diffusion1d as diffusion1d
 import stochpy.timeseries as ts
-import stochpy.ams as ams
+import stochpy.rare.ams as ams
 
 class TestStochastic(unittest.TestCase):
     def test_wiener_potential(self):

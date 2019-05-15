@@ -1,5 +1,8 @@
 """
-Module for rare event algorithms of the "Adaptive Multilevel Splitting" family.
+Rare event algorithms of the "Adaptive Multilevel Splitting" family
+===================================================================
+
+.. currentmodule:: stochpy.rare.ams
 
 There are two kinds of variants of the AMS algorithms.
 On the one hand, there are "scientific" variants, corresponding to different formulations of the
@@ -7,6 +10,12 @@ algorithm (e.g. AMS vs TAMS).
 On the other hand, there are "technical" variants, corresponding to different implementations: for
 instance, keeping all the trajectories in memory or storing them on disk (necessary for applications
 to complex systems)
+
+.. autoclass:: AMS
+   :members:
+
+.. autoclass:: TAMS
+   :members:
 """
 import numpy as np
 

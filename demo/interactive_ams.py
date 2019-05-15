@@ -83,7 +83,7 @@ def main():
     ax.set_xlabel(r'$t$')
     ax.set_ylabel(r'$x$')
     oup = sp.dynamics.diffusion1d.OrnsteinUhlenbeck1D(0, 1, 0.5)
-    _ = InteractiveAMS(sp.ams.TAMS(oup, (lambda t, x: x), 5.), 3, ax)
+    _ = InteractiveAMS(sp.rare.ams.TAMS(oup, (lambda t, x: x), 5.), 3, ax)
     plt.show()
 
 if __name__ == '__main__':
