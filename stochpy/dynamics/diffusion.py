@@ -30,6 +30,7 @@ These classes form a hierarchy deriving from the base class, `DiffusionProcess`.
 
 """
 import numpy as np
+from ..utils import pseudorand
 
 class DiffusionProcess:
     r"""
@@ -50,7 +51,7 @@ class DiffusionProcess:
 
     default_dt = 0.1
 
-    def __init__(self, vecfield, sigma):
+    def __init__(self, vecfield, sigma, **kwargs):
         """
         vecfield: vector field
         sigma: diffusion coefficient (noise)
@@ -59,6 +60,7 @@ class DiffusionProcess:
         """
         self.drift = vecfield
         self.diffusion = sigma
+        self.__deterministic__ = kwargs.get('deterministic', False)
 
     def increment(self, x, t, **kwargs):
         r"""
@@ -104,6 +106,7 @@ class DiffusionProcess:
         dim = len(x)
         return self.drift(x, t)*dt+np.sqrt(dt)*self.diffusion(x, t)@np.random.normal(0.0, 1.0, dim)
 
+    @pseudorand
     def trajectory(self, x0, t0, **kwargs):
         r"""
         Integrate the SDE with given initial condition.
@@ -146,6 +149,7 @@ class DiffusionProcess:
             x = x[np.isfinite(x)]
         return tarray, x
 
+    @pseudorand
     def trajectory_generator(self, x0, t0, nsteps, **kwargs):
         r"""
         Integrate the SDE with given initial condition, generator version.
@@ -249,7 +253,7 @@ class ConstantDiffusionProcess(DiffusionProcess):
 
     default_dt = 0.1
 
-    def __init__(self, vecfield, Damp, dim):
+    def __init__(self, vecfield, Damp, dim, **kwargs):
         """
         vecfield: vector field, function of two variables (x,t)
         Damp: amplitude of the diffusion term (noise), scalar
@@ -257,7 +261,8 @@ class ConstantDiffusionProcess(DiffusionProcess):
 
         In this class of stochastic processes, the diffusion matrix is proportional to identity.
         """
-        DiffusionProcess.__init__(self, vecfield, (lambda x, t: np.sqrt(2*Damp)*np.eye(dim)))
+        DiffusionProcess.__init__(self, vecfield, (lambda x, t: np.sqrt(2*Damp)*np.eye(dim)),
+                                  **kwargs)
         self.D0 = Damp
         self.dimension = dim
 
@@ -331,8 +336,8 @@ class OrnsteinUhlenbeck(ConstantDiffusionProcess):
     .. [3] G. E. Uhlenbeck and L. S. Ornstein, "On the theory of Brownian Motion".
            Phys. Rev. 36, 823–841 (1930).
     """
-    def __init__(self, mu, theta, D, dim):
-        super(OrnsteinUhlenbeck, self).__init__(lambda x, t: theta*(mu-x), D, dim)
+    def __init__(self, mu, theta, D, dim, **kwargs):
+        super(OrnsteinUhlenbeck, self).__init__(lambda x, t: theta*(mu-x), D, dim, **kwargs)
         self.theta = theta
         self.mu = mu
 
@@ -378,8 +383,8 @@ class Wiener(OrnsteinUhlenbeck):
     We refer to classical textbooks for more information about the Wiener process
     and Brownian motion.
     """
-    def __init__(self, dim, D=1):
-        super(Wiener, self).__init__(0, 0, D, dim)
+    def __init__(self, dim, D=1, **kwargs):
+        super(Wiener, self).__init__(0, 0, D, dim, **kwargs)
 
     @classmethod
     def potential(cls, x):
