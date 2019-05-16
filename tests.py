@@ -14,9 +14,9 @@ import stochpy.rare.ams as ams
 class TestStochastic(unittest.TestCase):
     def test_wiener_potential(self):
         data = np.ones(10)
-        np.testing.assert_array_equal(diffusion.Wiener(1).potential(data, 0.), np.zeros_like(data))
+        np.testing.assert_array_equal(diffusion.Wiener(1).potential(data), np.zeros_like(data))
         data = np.ones((10, 10))
-        np.testing.assert_array_equal(diffusion.Wiener(2).potential(data, 0.), np.zeros_like(data))
+        np.testing.assert_array_equal(diffusion.Wiener(2).potential(data), np.zeros_like(data))
 
     def test_increment(self):
         dimension = 2
