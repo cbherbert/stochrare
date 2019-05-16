@@ -23,6 +23,8 @@ StochPy is organized in several modules serving different purposes:
    stochpy.dynamics
    stochpy.fokkerplanck
    stochpy.firstpassage
+   stochpy.rare
+   stochpy.io
    stochpy.utils
 
 
