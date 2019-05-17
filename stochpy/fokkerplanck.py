@@ -20,12 +20,22 @@ from . import edpy
 
 
 class FokkerPlanck1D:
-    """
-    Solver for the 1D Fokker-Planck equation
+    r"""
+    Solver for the 1D Fokker-Planck equation.
 
-    d_t P(x,t) = - a(x,t)d_x P(x,t) + D d^2 P(x,t)/d_x^2
+    :math:`\partial_t P(x,t) = - \partial_x a(x,t)P(x,t) + D \partial^2_{xx} P(x,t)`
 
-    This is just the legacy code which was migrated from the StochModel1D class.
+    Parameters
+    ----------
+    drift : function with two variables
+        The drift coefficient :math:`a(x, t)`.
+    diffusion : float
+        The constant diffusion coefficient :math:`D`.
+
+    Notes
+    -----
+    This is just the legacy code which was migrated from the
+    :class:`stochpy.dynamics.DiffusionProcess1D` class.
     It should be rewritten with a better structure.
     In particular, it only works with a constant diffusion for now.
     """
@@ -76,13 +86,36 @@ class FokkerPlanck1D:
     def fpintegrate(self, t0, T, **kwargs):
         """
         Numerical integration of the associated Fokker-Planck equation, or its adjoint.
-        Optional arguments are the following:
-        - bounds=(-10.0,10.0); domain where we should solve the equation
-        - npts=100;            number of discretization points in the domain (i.e. spatial resolution)
-        - dt;                  timestep (default choice suitable for the heat equation with forward scheme)
-        - bc;                  boundary conditions (either a BoundaryCondition object or a tuple sent to _fpbc)
-        - method=euler;        numerical scheme: explicit (default), implicit, or crank-nicolson
-        - adj=False;           integrate the adjoint FP rather than the forward FP?
+
+        Parameters
+        ----------
+        t0 : float
+            Initial time.
+        T : float
+            Integration time.
+
+        Keyword Arguments
+        -----------------
+        bounds : float 2-tuple
+            Domain where we should solve the equation (default (-10.0,10.0))
+        npts : ints
+            Number of discretization points in the domain (i.e. spatial resolution). Default: 100.
+        dt : float
+            Timestep (default choice suitable for the heat equation with forward scheme)
+        bc: stochpy.edpy.BoundaryCondition object or tuple
+            Boundary conditions (either a BoundaryCondition object or a tuple sent to _fpbc)
+        method : str
+            Numerical scheme: explicit ('euler', default), implicit, or crank-nicolson
+        adjoint : bool
+            Integrate the adjoint FP rather than the forward FP (default False).
+        P0 : str
+            Initial condition: 'gauss' (default), 'dirac' or 'uniform'.
+
+        Returns
+        -------
+        t, X, P : float, ndarray, ndarray
+            Final time, sample points and solution of the Fokker-Planck
+            equation at the sample points.
         """
         # Get computational parameters:
         B, A = kwargs.pop('bounds', (-10.0, 10.0))
