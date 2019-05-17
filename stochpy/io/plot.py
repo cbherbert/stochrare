@@ -6,6 +6,8 @@ Plotting routines
 
 This module contains several functions for making quick plots.
 
+.. autofunction:: pdf_plot1d
+
 .. autofunction:: returntime_plot
 """
 import matplotlib.pyplot as plt
