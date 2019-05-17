@@ -149,8 +149,20 @@ class FokkerPlanck1D:
         else:
             return t0, fdgrid.grid, P0
 
-    def pdfgen(self, *args, **kwargs):
-        """ Generate the pdf solution of the FP equation at various times """
+    def fpintegrate_generator(self, *args, **kwargs):
+        """
+        Numerical integration of the associated Fokker-Planck equation, generator version.
+
+        Parameters
+        ----------
+        *args : variable length argument list
+            Times at which to yield the pdf.
+
+        Yields
+        ------
+        t, X, P : float, ndarray, ndarray
+            Time, sample points and solution of the Fokker-Planck equation at the sample points.
+        """
         t0 = kwargs.pop('t0', args[0])
         fun = kwargs.pop('integ', self.fpintegrate)
         for t in args:
