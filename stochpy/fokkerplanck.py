@@ -83,6 +83,27 @@ class FokkerPlanck1D:
             raise NotImplementedError("Unknown boundary conditions for the Fokker-Planck equations")
         return edpy.DirichletBC([0, 0]) if self.diffusion == 0 else dic[bc]
 
+    @classmethod
+    def gaussian1d(cls, mean, std, X):
+        """
+        Return a 1D Gaussian pdf.
+
+        Parameters
+        ----------
+        mean : float
+        std : float
+        X : ndarray
+            The sample points.
+
+        Returns
+        -------
+        pdf : ndarray
+            The Gaussian pdf at the sample points.
+        """
+        pdf = np.exp(-0.5*((X-mean)/std)**2)/(np.sqrt(2*np.pi)*std)
+        pdf /= integrate.trapz(pdf, X)
+        return pdf
+
     def fpintegrate(self, t0, T, **kwargs):
         """
         Numerical integration of the associated Fokker-Planck equation, or its adjoint.
@@ -128,8 +149,7 @@ class FokkerPlanck1D:
         # Prepare initial P(x):
         P0 = kwargs.pop('P0', 'gauss')
         if P0 == 'gauss':
-            P0 = np.exp(-0.5*((fdgrid.grid-kwargs.get('P0center', 0.0))/kwargs.get('P0std', 1.0))**2)/(np.sqrt(2*np.pi)*kwargs.get('P0std', 1.0))
-            P0 /= integrate.trapz(P0, fdgrid.grid)
+            P0 = self.gaussian1d(kwargs.get('P0center', 0.0), kwargs.get('P0std', 1.0), fdgrid.grid)
         if P0 == 'dirac':
             P0 = np.zeros_like(fdgrid.grid)
             np.put(P0, len(fdgrid.grid[fdgrid.grid < kwargs.get('P0center', 0.0)]), 1.0)
