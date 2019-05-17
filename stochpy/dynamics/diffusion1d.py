@@ -324,7 +324,27 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
         return t[np.isfinite(x)][-1]
 
     def pdfplot(self, *args, **kwargs):
-        """ Plot the pdf P(x,t) at various times """
+        """
+        Plot the pdf P(x,t) at various times.
+
+        .. todo::
+        Rewrite using :meth:`stochpy.fokkerplanck.fpintegrate_generator` and :meth:`stochpy.io.plot.pdf_plot1d`
+        or deprecate altogether.
+
+        Parameters
+        ----------
+        args : variable length argument list
+            The times at which to plot the PDF.
+
+        Keyword Arguments
+        -----------------
+        t0 : float
+            Initial time.
+        potential : bool
+            Plot potential on top of PDF.
+        th : bool
+            Plot theoretical solution, if it exists, on top of PDF.
+        """
         _ = plt.figure()
         ax = plt.axes()
         t0 = kwargs.pop('t0', args[0])
