@@ -37,6 +37,7 @@ from scipy.misc import derivative
 from .. import edpy
 from .. import fokkerplanck as fp
 from ..utils import pseudorand
+from ..io import plot
 
 
 class DiffusionProcess1D:
@@ -214,32 +215,35 @@ class DiffusionProcess1D:
 
     @classmethod
     def trajectoryplot(cls, *args, **kwargs):
-        """ Plot previously computed trajectories """
-        _ = plt.figure()
-        ax = plt.axes()
-        lines = []
-        for t, x in args:
-            lines += ax.plot(t, x)
+        """
+        Plot 1D  trajectories.
 
-        ax.grid()
-        ax.set_ylim(kwargs.get('ylim', ax.get_ylim()))
-        ax.set_xlim(kwargs.get('xlim', ax.get_xlim()))
-        ax.set_xlabel('$t$')
-        ax.set_ylabel('$x(t)$')
-        plottitle = kwargs.get('title', "")
-        if plottitle != "":
-            plt.title(plottitle)
+        Parameters
+        ----------
+        *args : variable length argument list
+        trajs: tuple (t, x)
 
-        labels = kwargs.get('labels', [])
-        if labels != []:
-            plt.legend(lines, labels, bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+        Keyword Arguments
+        -----------------
+        fig : matplotlig.figure.Figure
+        Figure object to use for the plot. Create one if not provided.
+        ax : matplotlig.axes.Axes
+        Axes object to use for the plot. Create one if not provided.
+        **kwargs :
+        Other keyword arguments forwarded to matplotlib.pyplot.axes.
 
-        cls._trajectoryplot_decorate(*args, axis=ax, **kwargs)
-        plt.show()
+        Returns
+        -------
+        fig, ax: matplotlib.figure.Figure, matplotlib.axes.Axes
+        The figure.
 
-    @classmethod
-    def _trajectoryplot_decorate(cls, *args, **kwargs):
-        pass
+        Notes
+        -----
+        This is just an interface to the function :meth:`stochpy.io.plot.trajectory_plot1d`.
+        However, it may be overwritten in subclasses to systematically include elements to
+        the plot which are specific to the stochastic process.
+        """
+        return plot.trajectory_plot1d(*args, **kwargs)
 
     def _fpthsol(self, X, t, **kwargs):
         """ Analytic solution of the Fokker-Planck equation, when it is known.

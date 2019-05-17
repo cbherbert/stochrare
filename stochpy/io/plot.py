@@ -6,15 +6,63 @@ Plotting routines
 
 This module contains several functions for making quick plots.
 
+.. autofunction:: trajectory_plot1d
+
 .. autofunction:: pdf_plot1d
 
 .. autofunction:: returntime_plot
 """
 import matplotlib.pyplot as plt
 
+def trajectory_plot1d(*args, **kwargs):
+    """
+    Plot 1D  trajectories.
+
+    Parameters
+    ----------
+    *args : variable length argument list
+        trajs: tuple (t, x)
+
+    Keyword Arguments
+    -----------------
+    fig : matplotlig.figure.Figure
+        Figure object to use for the plot. Create one if not provided.
+    ax : matplotlig.axes.Axes
+        Axes object to use for the plot. Create one if not provided.
+    **kwargs :
+        Other keyword arguments forwarded to matplotlib.pyplot.axes.
+
+    Returns
+    -------
+    fig, ax: matplotlib.figure.Figure, matplotlib.axes.Axes
+        The figure.
+    """
+    labels = kwargs.pop('labels', [])
+    if 'fig' in kwargs:
+        fig = kwargs.pop('fig')
+    else:
+        fig = plt.figure()
+    if 'ax' in kwargs:
+        ax = kwargs.pop('ax')
+    else:
+        ax = plt.axes(**kwargs)
+
+    lines = []
+    for t, x in args:
+        lines += ax.plot(t, x)
+
+    ax.grid()
+    ax.set_xlabel('$t$')
+    ax.set_ylabel('$x(t)$')
+    if labels != []:
+        ax.legend(lines, labels, bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+
+    return fig, ax
+
+
 def pdf_plot1d(*args, **kwargs):
     """
-    Plot PDFs.
+    Plot 1D PDFs.
 
     Parameters
     ----------
