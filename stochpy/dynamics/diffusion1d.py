@@ -332,7 +332,8 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
         Plot the pdf P(x,t) at various times.
 
         .. todo::
-        Rewrite using :meth:`stochpy.fokkerplanck.fpintegrate_generator` and :meth:`stochpy.io.plot.pdf_plot1d`
+        Rewrite using :meth:`stochpy.fokkerplanck.fpintegrate_generator` and
+        :meth:`stochpy.io.plot.pdf_plot1d`
         or deprecate altogether.
 
         Parameters
