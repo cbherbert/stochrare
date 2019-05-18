@@ -28,3 +28,28 @@ In the *demo* directory, some Jupyter notebooks illustrate the basic features of
 More should be added soon, in particular for metastability or loss of stability problem and noise-induced transitions.
 These notebooks will include references to the relevant litterature.
 
+## Citation
+
+We should soon write a metapaper describing the project.
+In the meantime, if you use the package for your research, we would appreciate if you could give credit by citing one of the research papers where the development of stochpy started:
+
+	@article{Herbert2017,
+	Author = {Herbert, Corentin and Bouchet, Freddy},
+	Doi = {10.1007/BF01106788},
+	Journal = {Phys. Rev. E},
+	Pages = {030201(R)},
+	Title = {{Predictability of escape for a stochastic saddle-node bifurcation: when rare events are typical}},
+	Volume = {96},
+	Year = {2017}}
+
+for the core features, and
+
+	@article{Lestang2018,
+	Author = {Lestang, Thibault and Ragone, Francesco and Br{\'e}hier, Charles-Edouard and Herbert, Corentin and Bouchet, Freddy},
+	Doi = {10.1088/1742-5468/aab856},
+	Title = {{Computing return times or return periods with rare event algorithms}},
+	Journal = {J. Stat. Mech.},
+	Volume = {043213},
+	Year = {2018}}
+	
+for the AMS algorithm and return time computations.
