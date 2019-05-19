@@ -60,7 +60,7 @@ def trajectory_plot1d(*args, **kwargs):
     return fig, ax
 
 
-def pdf_plot1d(*args, **kwargs):
+def pdf_plot1d(*args, legend=True, **kwargs):
     """
     Plot 1D PDFs.
 
@@ -78,6 +78,8 @@ def pdf_plot1d(*args, **kwargs):
         Figure object to use for the plot. Create one if not provided.
     ax : matplotlig.axes.Axes
         Axes object to use for the plot. Create one if not provided.
+    legend : bool
+        Add legend (default True).
     **kwargs :
         Other keyword arguments forwarded to matplotlib.pyplot.axes.
 
@@ -95,18 +97,21 @@ def pdf_plot1d(*args, **kwargs):
         ax = kwargs.pop('ax')
     else:
         ax = plt.axes(**kwargs)
+        ax.grid()
+        ax.set_xlabel('$x$')
+        ax.set_ylabel(kwargs.get('ylabel', '$P(x,t)$'))
+    lines = []
     for pdf in args:
-        ax.plot(pdf[0], pdf[1], **(pdf[2] if len(pdf) > 2 else {}))
+        line, = ax.plot(pdf[0], pdf[1], **(pdf[2] if len(pdf) > 2 else {}))
+        lines += [line]
     if V is not None:
         ax2 = ax.twinx()
         ax2.set_ylabel('$V(x,t)$')
         ax2.plot(X, V, linestyle='dashed')
-    ax.grid()
-    ax.set_xlabel('$x$')
-    ax.set_ylabel(kwargs.get('ylabel', '$P(x,t)$'))
-    #ax.legend(**(kwargs.get('legend_args', {})))
-    ax.legend()
-    return fig, ax
+    if legend:
+        #ax.legend(**(kwargs.get('legend_args', {})))
+        ax.legend()
+    return fig, ax, lines
 
 def returntime_plot(*args):
     """

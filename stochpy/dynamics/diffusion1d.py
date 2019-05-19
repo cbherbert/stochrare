@@ -30,7 +30,6 @@ These classes form a hierarchy deriving from the base class, `DiffusionProcess1D
 
 """
 import numpy as np
-import matplotlib.pyplot as plt
 import scipy.integrate as integrate
 from scipy.interpolate import interp1d
 from scipy.misc import derivative
@@ -331,11 +330,6 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
         """
         Plot the pdf P(x,t) at various times.
 
-        .. todo::
-        Rewrite using :meth:`stochpy.fokkerplanck.fpintegrate_generator` and
-        :meth:`stochpy.io.plot.pdf_plot1d`
-        or deprecate altogether.
-
         Parameters
         ----------
         args : variable length argument list
@@ -350,31 +344,24 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
         th : bool
             Plot theoretical solution, if it exists, on top of PDF.
         """
-        _ = plt.figure()
-        ax = plt.axes()
-        t0 = kwargs.pop('t0', args[0])
-        fun = kwargs.pop('integ', fp.FokkerPlanck1D(self.F, self.D0).fpintegrate)
-        if kwargs.get('potential', False):
-            ax2 = ax.twinx()
-            ax2.set_ylabel('$V(x,t)$')
-        for t in args:
-            t, X, P = fun(t0, t-t0, **kwargs)
-            line, = ax.plot(X, P, label='t='+format(t, '.2f'))
-            if kwargs.get('th', False):
-                Pth = self._fpthsol(X, t, **kwargs)
-                if Pth is not None:
-                    ax.plot(X, Pth, color=line.get_color(), linestyle='dotted')
+        fig, ax, _ = plot.pdf_plot1d(legend=False, title=r'$\epsilon='+str(self.D0)+'$')
+        kw_integ = ('dt', 'npts', 'bounds', 't0', 'P0', 'bc', 'method', 'adjoint')
+        fpe = fp.FokkerPlanck1D(self.drift, self.D0)
+        fpgen = fpe.fpintegrate_generator(*args,
+                                          **{k: v for k, v in kwargs.items() if k in kw_integ})
+        for t, X, P in fpgen:
             if kwargs.get('potential', False):
-                ax2.plot(X, self.potential(X, t), linestyle='dashed')
-            t0 = t
-            kwargs['P0'] = P
+                kwargs['potential'] = (X, self.potential(X, t))
+            _, _, lines = plot.pdf_plot1d((np.array(X), np.array(P),
+                                           {'label': 't='+format(t, '.2f')}),
+                                          fig=fig, ax=ax, legend=False, **kwargs)
+            if kwargs.get('th', False):
+                plot.pdf_plot1d((X, self._fpthsol(X, t),
+                                 {'ls': 'dotted', 'color': lines[0].get_color()}),
+                                fig=fig, ax=ax, legend=False)
+        fig, ax, _ = plot.pdf_plot1d(fig=fig, ax=ax, legend=True)
+        return fig, ax
 
-        ax.grid()
-        ax.set_xlabel('$x$')
-        ax.set_ylabel(kwargs.get('ylabel', '$P(x,t)$'))
-        plt.title(r'$\epsilon='+str(self.D0)+'$')
-        ax.legend(**(kwargs.get('legend_args', {})))
-        plt.show()
 
     def instanton(self, x0, p0, *args, **kwargs):
         """
