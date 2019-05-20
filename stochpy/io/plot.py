@@ -21,7 +21,7 @@ def trajectory_plot1d(*args, **kwargs):
     Parameters
     ----------
     *args : variable length argument list
-        trajs: tuple (t, x)
+        trajs: tuple (t, x) or (t, x, kwargs_dict)
 
     Keyword Arguments
     -----------------
@@ -46,14 +46,13 @@ def trajectory_plot1d(*args, **kwargs):
         ax = kwargs.pop('ax')
     else:
         ax = plt.axes(**kwargs)
+        ax.set_xlabel('$t$')
+        ax.set_ylabel('$x(t)$')
 
     lines = []
-    for t, x in args:
-        lines += ax.plot(t, x)
+    for traj in args:
+        lines += ax.plot(traj[0], traj[1], **(traj[2] if len(traj) > 2 else {}))
 
-    ax.grid()
-    ax.set_xlabel('$t$')
-    ax.set_ylabel('$x(t)$')
     if labels != []:
         ax.legend(lines, labels, bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
 
