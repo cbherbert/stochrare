@@ -116,6 +116,10 @@ class DiffusionProcess1D:
         This method uses the Euler-Maruyama method [1]_ [2]_:
         :math:`x_{n+1} = x_n + F(x_n, t_n)\Delta t + \sigma(x_n, t_n) \Delta W_n`.
 
+        It is the straightforward generalization to SDEs of the Euler method for ODEs.
+
+        The Euler-Maruyama method has strong order 0.5 and weak order 1.
+
         References
         ----------
         .. [1] G. Maruyama, Continuous Markov processes and stochastic equations, Rend. Circ. Mat.
