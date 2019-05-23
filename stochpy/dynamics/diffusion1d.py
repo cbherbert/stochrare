@@ -396,14 +396,37 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
         return xn + self.drift(xn, tn)*dt + np.sqrt(2.0*self.D0)*dw
 
     def traj_cond_gen(self, x0, t0, tau, M, **kwargs):
-        """Generate trajectories conditioned on the first-passage time tau at value M.
-        Initial conditions are (x0,t0).
-        Optional keyword arguments:
-        - dt     -- integration timestep (default is self.default_dt)
-        - ttol   -- first-passage time tolerance (default is 1% of trajectory duration)
-        - num    -- number of trajectories generated (default is 10)
-        - interp -- interpolate to generate unifomly sampled trajectories
-        - npts   -- number of points for interpolated trajectories (default (tau-t0)/dt)
+        """
+        Generate trajectories conditioned on the first-passage time tau at value M.
+
+        Parameters
+        ----------
+        x0: float
+            Initial position.
+        t0: float
+            Initial time.
+        tau: float
+            The value of the first passage time required.
+        M: float
+            The threshold for the first passage time.
+
+        Keyword Arguments
+        -----------------
+        dt: float
+            The integration timestep (default is self.default_dt).
+        ttol: float
+            The first-passage time tolerance (default is 1% of trajectory duration).
+        num: int
+            The number of trajectories generated (default is 10).
+        interp: bool
+            Interpolate to generate unifomly sampled trajectories.
+        npts: int
+            The number of points for interpolated trajectories (default (tau-t0)/dt).
+
+        Yields
+        -------
+        t, x: ndarray, ndarray
+            Trajectories satisfying the condition on the first passage time.
         """
         dt = kwargs.get('dt', self.default_dt)
         tau_tol = kwargs.get('ttol', 0.01*np.abs(tau-t0))
@@ -425,7 +448,21 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
                 yield t, x
 
     def blowuptime(self, x0, t0, **kwargs):
-        """ Compute the last time with finite values, for one realization"""
+        """
+        Compute the last time with finite values, for one realization.
+
+        Parameters
+        ----------
+        x0: float
+            The initial position.
+        t0: float
+            The initial time.
+
+        Returns
+        -------
+        The last time with finite values for a realization with initial conditions (t0, x0).
+        This is a random variable.
+        """
         t, x = self.trajectory(x0, t0, **kwargs)
         return t[np.isfinite(x)][-1]
 
