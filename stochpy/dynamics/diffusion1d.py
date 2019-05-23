@@ -377,14 +377,14 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
 
         Notes
         -----
-        This method uses the Euler-Maruyama method [1]_ [2]_:
+        This method uses the Euler-Maruyama method [3]_ [4]_:
         :math:`x_{n+1} = x_n + F(x_n, t_n)\Delta t + \sqrt{2D} \Delta W_n`.
 
         References
         ----------
-        .. [1] G. Maruyama, Continuous Markov processes and stochastic equations, Rend. Circ. Mat.
+        .. [3] G. Maruyama, Continuous Markov processes and stochastic equations, Rend. Circ. Mat.
           Palermo 4, 48-90 (1955).
-        .. [2] P. E. Kloeden and E. Platen, Numerical Solution of Stochastic Differential Equations,
+        .. [4] P. E. Kloeden and E. Platen, Numerical Solution of Stochastic Differential Equations,
           Springer (1992).
         """
         dt = kwargs.get('dt', self.default_dt)
@@ -554,7 +554,7 @@ class OrnsteinUhlenbeck1D(ConstantDiffusionProcess1D):
     -----
     The Ornstein-Uhlenbeck process has been used to model many systems.
     It was initially introduced to describe the motion of a massive
-    Brownian particle with friction [1]_ .
+    Brownian particle with friction [5]_ .
     It may also be seen as a diffusion process in a harmonic potential.
 
     Because many of its properties can be computed analytically, it provides a useful
@@ -562,7 +562,7 @@ class OrnsteinUhlenbeck1D(ConstantDiffusionProcess1D):
 
     References
     ----------
-    .. [1] G. E. Uhlenbeck and L. S. Ornstein, "On the theory of Brownian Motion".
+    .. [5] G. E. Uhlenbeck and L. S. Ornstein, "On the theory of Brownian Motion".
            Phys. Rev. 36, 823–841 (1930).
     """
     def __init__(self, mu, theta, D, **kwargs):
