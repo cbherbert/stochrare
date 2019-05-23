@@ -283,6 +283,25 @@ class DiffusionProcess1D:
                 break
         return t, x
 
+    def blowuptime(self, x0, t0, **kwargs):
+        """
+        Compute the last time with finite values, for one realization.
+
+        Parameters
+        ----------
+        x0: float
+            The initial position.
+        t0: float
+            The initial time.
+
+        Returns
+        -------
+        The last time with finite values for a realization with initial conditions (t0, x0).
+        This is a random variable.
+        """
+        t, x = self.trajectory(x0, t0, **kwargs)
+        return t[np.isfinite(x)][-1]
+
     @classmethod
     def trajectoryplot(cls, *args, **kwargs):
         """
@@ -447,24 +466,6 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
                     x = fun(t)
                 yield t, x
 
-    def blowuptime(self, x0, t0, **kwargs):
-        """
-        Compute the last time with finite values, for one realization.
-
-        Parameters
-        ----------
-        x0: float
-            The initial position.
-        t0: float
-            The initial time.
-
-        Returns
-        -------
-        The last time with finite values for a realization with initial conditions (t0, x0).
-        This is a random variable.
-        """
-        t, x = self.trajectory(x0, t0, **kwargs)
-        return t[np.isfinite(x)][-1]
 
     def pdfplot(self, *args, **kwargs):
         """
