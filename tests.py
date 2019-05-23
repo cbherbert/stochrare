@@ -18,15 +18,11 @@ class TestStochastic(unittest.TestCase):
         data = np.ones((10, 10))
         np.testing.assert_array_equal(diffusion.Wiener(2).potential(data), np.zeros_like(data))
 
-    def test_increment(self):
+    def test_update(self):
         dimension = 2
-        model = diffusion.DiffusionProcess(lambda x, t: 0,
-                                           lambda x, t: np.sqrt(2)*np.eye(dimension))
-        np.random.seed(seed=100)
-        increment_wiener = diffusion.Wiener(dimension).increment(np.zeros(dimension), 0)
-        np.random.seed(seed=100)
-        increment_diffusion = model.increment(np.zeros(dimension), 0)
-        np.testing.assert_allclose(increment_wiener, increment_diffusion)
+        wiener = diffusion.Wiener(dimension, D=0.5)
+        dw = np.random.normal(size=dimension)
+        np.testing.assert_array_equal(wiener.update(np.zeros(dimension), 0, dw=dw), dw)
 
 class TestDynamics1D(unittest.TestCase):
     def test_update(self):

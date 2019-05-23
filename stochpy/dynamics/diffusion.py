@@ -62,34 +62,37 @@ class DiffusionProcess:
         self.diffusion = sigma
         self.__deterministic__ = kwargs.get('deterministic', False)
 
-    def increment(self, x, t, **kwargs):
+    def update(self, xn, tn, **kwargs):
         r"""
-        The right-hand side of the SDE, approximated with the Euler-Maruyama method.
+        Return the next sample for the time-discretized process.
 
         Parameters
         ----------
-        x: ndarray
+        xn: ndarray
             A n-dimensional vector (in :math:`\mathbb{R}^n`).
-        t: float
-            The time.
+        tn: float
+            The current time.
 
         Keyword Arguments
         ------------------
-        dt: float
+        dt : float
             The time step.
+        dw : ndarray
+            The brownian increment if precomputed.
+            By default, it is generated on the fly from a Gaussian
+            distribution with variance :math:`dt`.
 
         Returns
         -------
-        dx: ndarray
-            The increment :math:`F(x, t)dt + \sigma(x, t)dW_t`
+        x : ndarray
+            The position at time tn+dt.
 
         Notes
         -----
-        The Euler-Maruyama method consists in approximating the right-hand side of the SDE
-        :math:`F(x, t)dt + \sigma(x, t)dW_t` by
-        :math:`F(x, t)\Delta t + \sqrt{\Delta t}\sigma(x, t) \Delta W` for a fixed time step
-        :math:`\Delta t`, where :math:`\Delta W` is a random vector distributed according to the
-        standard normal distribution [1]_ [2]_.
+        This method uses the Euler-Maruyama method [1]_ [2]_:
+        :math:`x_{n+1} = x_n + F(x_n, t_n)\Delta t + \sigma(x_n, t_n) \Delta W_n`,
+        for a fixed time step :math:`\Delta t`, where :math:`\Delta W_n` is a random vector
+        distributed according to the standard normal distribution [1]_ [2]_.
 
         It is the straightforward generalization to SDEs of the Euler method for ODEs.
 
@@ -103,8 +106,9 @@ class DiffusionProcess:
            "Numerical solution of stochastic differential equations", Springer (1992).
         """
         dt = kwargs.get('dt', self.default_dt)
-        dim = len(x)
-        return self.drift(x, t)*dt+np.sqrt(dt)*self.diffusion(x, t)@np.random.normal(0.0, 1.0, dim)
+        dim = len(xn)
+        dw = kwargs.get('dw', np.random.normal(0.0, np.sqrt(dt), dim))
+        return xn + self.drift(xn, tn)*dt+self.diffusion(xn, tn)@dw
 
     @pseudorand
     def trajectory(self, x0, t0, **kwargs):
@@ -121,7 +125,7 @@ class DiffusionProcess:
         Keyword Arguments
         -----------------
         dt: float
-            The time step, forwarded to the increment routine
+            The time step, forwarded to the :meth:`update` routine
             (default 0.1, unless overridden by a subclass).
         T: float
             The time duration of the trajectory (default 10).
@@ -142,7 +146,7 @@ class DiffusionProcess:
             time = -time
         tarray = np.linspace(t0, t0+time, num=np.floor(time/dt)+1)
         for t in tarray[1:]:
-            x += [x[-1] + self.increment(x[-1], t, dt=dt)]
+            x += [self.update(x[-1], t, dt=dt)]
         x = np.array(x)
         if kwargs.get('finite', False):
             tarray = tarray[np.isfinite(x)]
@@ -166,7 +170,7 @@ class DiffusionProcess:
         Keyword Arguments
         -----------------
         dt: float
-            The time step, forwarded to the increment routine
+            The time step, forwarded to the :meth:`update` routine
             (default 0.1, unless overridden by a subclass).
         observable: function with two arguments
             Time-dependent observable :math:`O(x, t)` to compute (default :math:`O(x, t)=x`)
@@ -185,7 +189,7 @@ class DiffusionProcess:
         obs = kwargs.get('observable', lambda x, t: x)
         for _ in range(nsteps):
             t = t + dt
-            x = x + self.increment(x, t, dt=dt)
+            x = self.update(x, t, dt=dt)
             yield t, obs(x, t)
 
     def sample_mean(self, x0, t0, nsteps, nsamples, **kwargs):
@@ -206,7 +210,7 @@ class DiffusionProcess:
         Keyword Arguments
         -----------------
         dt: float
-            The time step, forwarded to the increment routine
+            The time step, forwarded to the :meth:`update` routine
             (default 0.1, unless overridden by a subclass).
         observable: function with two arguments
             Time-dependent observable :math:`O(x, t)` to compute (default :math:`O(x, t)=x`)
@@ -232,8 +236,8 @@ class ConstantDiffusionProcess(DiffusionProcess):
     It corresponds to the family of SDEs :math:`dx_t = F(x_t, t)dt + \sigma dW_t`,
     where :math:`F` is a time-dependent :math:`N`-dimensional vector field
     and :math:`W` the :math:`N`-dimensional Wiener process.
-    The diffusion coefficient :math:`\sigma` is independent of space and time,
-    and we further assume that it is proportional to the identity matrix:
+    The diffusion coefficient :math:`\sigma` is independent of the stochastic process
+    (additive noise) and time, and we further assume that it is proportional to the identity matrix:
     all the components of the noise are independent.
 
     Parameters
@@ -266,40 +270,45 @@ class ConstantDiffusionProcess(DiffusionProcess):
         self.D0 = Damp
         self.dimension = dim
 
-    def increment(self, x, t, **kwargs):
+    def update(self, xn, tn, **kwargs):
         r"""
-        The right-hand side of the SDE, approximated with the Euler-Maruyama method.
+        Return the next sample for the time-discretized process.
 
         Parameters
         ----------
-        x: ndarray
+        xn: ndarray
             A n-dimensional vector (in :math:`\mathbb{R}^n`).
-        t: float
-            The time.
+        tn: float
+            The current time.
 
         Keyword Arguments
         ------------------
-        dt: float
+        dt : float
             The time step.
+        dw : ndarray
+            The brownian increment if precomputed.
+            By default, it is generated on the fly from a Gaussian
+            distribution with variance :math:`dt`.
 
         Returns
         -------
-        dx: ndarray
-            The increment :math:`F(x, t)dt + \sqrt{2D}dW_t`
+        x : ndarray
+            The position at time tn+dt.
 
         See Also
         --------
-        DiffusionProcess.increment : for details about the Euler-Maruyama method.
+        :meth:`DiffusionProcess.update` : for details about the Euler-Maruyama method.
 
         Notes
         -----
-        This is the same as the :meth:`DiffusionProcess.increment` method from the parent class
+        This is the same as the :meth:`DiffusionProcess.update` method from the parent class
         :class:`DiffusionProcess`, except that a matrix product is no longer necessary.
         """
         dt = kwargs.get('dt', self.default_dt)
-        if len(x) != self.dimension:
+        if len(xn) != self.dimension:
             raise ValueError('Input vector does not have the right dimension.')
-        return self.drift(x, t)*dt+np.sqrt(2*self.D0*dt)*np.random.normal(0, 1, self.dimension)
+        dw = kwargs.get('dw', np.random.normal(0.0, np.sqrt(dt), self.dimension))
+        return xn + self.drift(xn, tn)*dt+np.sqrt(2*self.D0)*dw
 
 
 class OrnsteinUhlenbeck(ConstantDiffusionProcess):
