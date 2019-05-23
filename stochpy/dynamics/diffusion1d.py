@@ -636,14 +636,14 @@ class OrnsteinUhlenbeck1D(ConstantDiffusionProcess1D):
 
         Notes
         -----
-        For the Ornstein-Uhlenbeck process, there is an exact method, the Gillespie algorithm [1]_.
+        For the Ornstein-Uhlenbeck process, there is an exact method, the Gillespie algorithm [6]_.
         This method is selected by default.
         If necessary, the Euler-Maruyama method can still be chosen using the ``method`` keyword
         argument.
 
         References
         ----------
-        .. [1] D. T. Gillespie, Exact numerical simulation of the Ornstein-Uhlenbeck process and its
+        .. [6] D. T. Gillespie, Exact numerical simulation of the Ornstein-Uhlenbeck process and its
                integral, Phys. Rev. E 54, 2084 (1996).
         """
         if kwargs.pop('method', 'gillespie') == 'gillespie' and self.theta != 0:
