@@ -21,12 +21,28 @@ class TestStochastic(unittest.TestCase):
     def test_increment(self):
         dimension = 2
         model = diffusion.DiffusionProcess(lambda x, t: 0,
-                                            lambda x, t: np.sqrt(2)*np.eye(dimension))
+                                           lambda x, t: np.sqrt(2)*np.eye(dimension))
         np.random.seed(seed=100)
         increment_wiener = diffusion.Wiener(dimension).increment(np.zeros(dimension), 0)
         np.random.seed(seed=100)
         increment_diffusion = model.increment(np.zeros(dimension), 0)
         np.testing.assert_allclose(increment_wiener, increment_diffusion)
+
+class TestDynamics1D(unittest.TestCase):
+    def test_update(self):
+        wiener = diffusion1d.Wiener1D(D=0.5)
+        dw = np.random.normal()
+        self.assertEqual(wiener.update(0, 0, dw=dw), dw)
+
+    def test_trajectory(self):
+        dt_brownian = 0.001
+        model = diffusion1d.DiffusionProcess1D(lambda x, t: 2*x, lambda x, t: x, deterministic=True)
+        wiener = diffusion1d.Wiener1D(D=0.5, deterministic=True)
+        brownian_path = wiener.trajectory(0., 0., T=1, dt=dt_brownian)
+        np.testing.assert_allclose(model.trajectory(1., 0., T=1, dt=0.001,
+                                                    brownian_path=brownian_path)[1],
+                                   model.trajectory(1., 0., T=1, dt=0.001, deltat=dt_brownian)[1],
+                                   rtol=1e-5)
 
 class TestRareEvents(unittest.TestCase):
     def test_blockmaximum(self):

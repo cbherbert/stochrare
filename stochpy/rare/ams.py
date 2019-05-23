@@ -28,7 +28,7 @@ class AMS:
     model : stochpy.dynamics.DiffusionProcess1D object (or a subclass of it)
         The dynamical model; so far we are restricted to SDEs of the form
         :math:`dX_t = F(X_t, t) + \sqrt{2D}dW_t`.
-        We only use the :meth:`stochpy.dynamics.DiffusionProcess1D.increment` method of the object.
+        We only use the :meth:`stochpy.dynamics.DiffusionProcess1D.update` method of the object.
     scorefun : function with two arguments
         The score function :math:`\xi(t, x)`.
     initcond : function with no arguments, optional
@@ -74,7 +74,7 @@ class AMS:
         - model: stochpy.dynamics.StochModel object (or a subclass of it)
                  The dynamical model; so far we are restricted to SDEs of the form
                      :math:`dX_t = F(X_t, t) + \sqrt{2D}dW_t`
-                 We only use the increment method of the dynamics object.
+                 We only use the update method of the dynamics object.
         - scorefun: a scalar function with two arguments.
                     The score function :math:`\xi(t, x)`
         - initcond (optional): a function with no arguments to generate initial conditions.
@@ -192,7 +192,7 @@ class AMS:
         dt = kwargs.get('dt', self.dynamics.default_dt)
         while 0 < self.score(t[-1], x[-1]) < 1:
             t += [t[-1] + dt]
-            x += [x[-1] + self.dynamics.increment(x[-1], t[-1], dt=dt)]
+            x += [self.dynamics.update(x[-1], t[-1], dt=dt)]
         return np.array(t), np.array(x)
 
     ###

@@ -86,49 +86,46 @@ class DiffusionProcess1D:
         fun = interp1d(X, -self.drift(X, t))
         return np.array([integrate.quad(fun, 0.0, x)[0] for x in X])
 
-    def increment(self, x, t, **kwargs):
-        """ Return F(x_t, t)dt + sigma(x_t, t)dW_t """
+    def update(self, xn, tn, **kwargs):
+        r"""
+        Return the next sample for the time-discretized process.
+
+        Parameters
+        ----------
+        xn : float
+            The current position.
+        tn : float
+            The current time.
+
+        Keyword Arguments
+        -----------------
+        dt : float
+            The time step (default 0.1 if not overriden by a subclass).
+        dw : float
+            The brownian increment if precomputed.
+            By default, it is generated on the fly from a Gaussian
+            distribution with variance :math:`dt`.
+
+        Returns
+        -------
+        x : float
+            The position at time tn+dt.
+
+        Notes
+        -----
+        This method uses the Euler-Maruyama method [1]_ [2]_:
+        :math:`x_{n+1} = x_n + F(x_n, t_n)\Delta t + \sigma(x_n, t_n) \Delta W_n`.
+
+        References
+        ----------
+        .. [1] G. Maruyama, Continuous Markov processes and stochastic equations, Rend. Circ. Mat.
+          Palermo 4, 48-90 (1955).
+        .. [2] P. E. Kloeden and E. Platen, Numerical Solution of Stochastic Differential Equations,
+          Springer (1992).
+        """
         dt = kwargs.get('dt', self.default_dt)
-        return self.drift(x, t) * dt + self.diffusion(x, t)*np.sqrt(dt)*np.random.normal(0.0, 1.0)
-
-    def update(self, x, t, **kwargs):
-        """
-        Return the next sample for the time-discretized process, using the Euler-Maruyama method
-
-        Refs:
-        - P. E. Kloeden and E. Platen, Numerical Solution of Stochastic Differential Equations,
-          Springer (1992)
-        - G. Maruyama, Continuous Markov processes and stochastic equations, Rend. Circ. Mat.
-          Palermo 4, 48-90 (1955)
-        """
-        return x + self.increment(x, t, **kwargs)
-
-    @pseudorand
-    def trajectory_numpy(self, x0, t0, **kwargs):
-        """
-        Integrate a trajectory with given initial condition (t0,x0)
-        Optional arguments:
-        - dt: float, the time step
-        - T: float, the integration time (i.e. the duration of the trajectory)
-        - finite: boolean, whether to filter output to return only finite values (default False)
-
-        This is the fastest way I have found to build the array directly using numpy.ndarray object
-        It still takes twice as much time as building a list and casting it to a numpy.ndarray.
-        """
-        dt = kwargs.pop('dt', self.default_dt)
-        time = kwargs.pop('T', 10.0)
-        if dt < 0:
-            time = -time
-        precision = kwargs.pop('precision', np.float32)
-        num = int(time/dt)+1
-        t = np.linspace(t0, t0+dt*int(time/dt), num=num, dtype=precision)
-        x = np.full(num, x0, dtype=precision)
-        for index in range(1, num):
-            x[index] = self.update(x[index-1], t[index-1], dt=dt, **kwargs)
-        if kwargs.pop('finite', False):
-            t = t[np.isfinite(x)]
-            x = x[np.isfinite(x)]
-        return t[t <= t0+time], x[t <= t0+time]
+        dw = kwargs.get('dw', np.random.normal(0.0, np.sqrt(dt)))
+        return xn + self.drift(xn, tn)*dt + self.diffusion(xn, tn)*dw
 
     @pseudorand
     def trajectory(self, x0, t0, **kwargs):
@@ -145,7 +142,67 @@ class DiffusionProcess1D:
         Keyword Arguments
         -----------------
         dt: float
-            The time step, forwarded to the increment routine
+            The time step, forwarded to the :meth:`update` routine
+            (default 0.1, unless overridden by a subclass).
+        T: float
+            The time duration of the trajectory (default 10).
+        brownian_path : (ndarray, ndarray)
+            A precomputed Brownian path with respect to which we integrate the SDE.
+            If not provided (default behavior), one will be computed one the fly.
+        deltat : float
+            The time step for the Brownian path, when generated on the fly (default: dt).
+        finite: bool
+            Filter finite values before returning trajectory (default False).
+
+        Returns
+        -------
+        t, x: ndarray, ndarray
+            Time-discrete sample path for the stochastic process with initial conditions (t0, x0).
+            The array t contains the time discretization and x the value of the sample path
+            at these instants.
+        """
+        dt = kwargs.pop('dt', self.default_dt)
+        time = kwargs.pop('T', 10.0)
+        if dt < 0:
+            time = -time
+        precision = kwargs.pop('precision', np.float32)
+        num = int(time/dt)+1
+        t = np.linspace(t0, t0+dt*(num-1), num=num, dtype=precision)
+        x = np.full(num, x0, dtype=precision)
+        if 'brownian_path' in kwargs:
+            tw, w = kwargs.pop('brownian_path')
+            dw = np.diff(w)
+            deltat = tw[1]-tw[0]
+            ratio = int(np.rint(dt/deltat))
+            dw = dw[:((num-1)*ratio)]
+        else:
+            deltat = kwargs.pop('deltat', dt)
+            ratio = int(np.rint(dt/deltat))
+            dw = np.random.normal(0, np.sqrt(deltat), size=(num-1)*ratio)
+        dw = dw.reshape((num-1, ratio)).sum(axis=1)
+        for index in range(1, num):
+            x[index] = self.update(x[index-1], t[index-1], dt=dt, dw=dw[index-1])
+        if kwargs.pop('finite', False):
+            t = t[np.isfinite(x)]
+            x = x[np.isfinite(x)]
+        return t[t <= t0+time], x[t <= t0+time]
+
+    @pseudorand
+    def _trajectory_fast(self, x0, t0, **kwargs):
+        r"""
+        Integrate the SDE with given initial condition.
+
+        Parameters
+        ----------
+        x0: float
+            The initial position.
+        t0: float
+            The initial time.
+
+        Keyword Arguments
+        -----------------
+        dt: float
+            The time step, forwarded to the :math:`update` routine
             (default 0.1, unless overridden by a subclass).
         T: float
             The time duration of the trajectory (default 10).
@@ -158,6 +215,16 @@ class DiffusionProcess1D:
             Time-discrete sample path for the stochastic process with initial conditions (t0, x0).
             The array t contains the time discretization and x the value of the sample path
             at these instants.
+
+        Notes
+        -----
+        For some reasons which are not fully elucidated yet, this old version of the integration
+        routine, although less flexible than the new (it does not allow for providing the
+        Brownian path) can be up to three times faster.
+        Hence, until the :meth:`trajectory` method has been optimized, we keep this method
+        around for cases where performance matter.
+
+        'Premature optimization is the root of all evil' --- Donald Knuth.
         """
         t = [t0]
         x = [x0]
@@ -192,7 +259,7 @@ class DiffusionProcess1D:
         Keyword Arguments
         -----------------
         dt: float
-            The time step, forwarded to the increment routine
+            The time step, forwarded to the :meth:`update` routine
             (default 0.1, unless overridden by a subclass).
         T: float
             The time duration of the trajectory (default 10).
@@ -283,10 +350,46 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
         self.F = vecfield # We keep this temporarily for backward compatiblity
         self.D0 = Damp    # We keep this temporarily for backward compatiblity
 
-    def increment(self, x, t, **kwargs):
-        """ Return F(x_t,t)dt + sqrt(2*D0)dW_t """
+    def update(self, xn, tn, **kwargs):
+        r"""
+        Return the next sample for the time-discretized process.
+
+        Parameters
+        ----------
+        xn : float
+            The current position.
+        tn : float
+            The current time.
+
+        Keyword Arguments
+        -----------------
+        dt : float
+            The time step (default 0.1 if not overriden by a subclass).
+        dw : float
+            The brownian increment if precomputed.
+            By default, it is generated on the fly from a Gaussian
+            distribution with variance :math:`dt`.
+
+        Returns
+        -------
+        x : float
+            The position at time tn+dt.
+
+        Notes
+        -----
+        This method uses the Euler-Maruyama method [1]_ [2]_:
+        :math:`x_{n+1} = x_n + F(x_n, t_n)\Delta t + \sqrt{2D} \Delta W_n`.
+
+        References
+        ----------
+        .. [1] G. Maruyama, Continuous Markov processes and stochastic equations, Rend. Circ. Mat.
+          Palermo 4, 48-90 (1955).
+        .. [2] P. E. Kloeden and E. Platen, Numerical Solution of Stochastic Differential Equations,
+          Springer (1992).
+        """
         dt = kwargs.get('dt', self.default_dt)
-        return self.F(x, t) * dt + np.sqrt(2.0*self.D0*dt)*np.random.normal(0.0, 1.0)
+        dw = kwargs.get('dw', np.random.normal(0.0, np.sqrt(dt)))
+        return xn + self.drift(xn, tn)*dt + np.sqrt(2.0*self.D0)*dw
 
     def time_reversal(self):
         """ Apply time reversal and return the new model """
