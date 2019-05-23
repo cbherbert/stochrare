@@ -296,16 +296,16 @@ class DiffusionProcess1D:
         Keyword Arguments
         -----------------
         fig : matplotlig.figure.Figure
-        Figure object to use for the plot. Create one if not provided.
+            Figure object to use for the plot. Create one if not provided.
         ax : matplotlig.axes.Axes
-        Axes object to use for the plot. Create one if not provided.
+            Axes object to use for the plot. Create one if not provided.
         **kwargs :
-        Other keyword arguments forwarded to matplotlib.pyplot.axes.
+            Other keyword arguments forwarded to matplotlib.pyplot.axes.
 
         Returns
         -------
         fig, ax: matplotlib.figure.Figure, matplotlib.axes.Axes
-        The figure.
+            The figure.
 
         Notes
         -----
@@ -574,19 +574,51 @@ class OrnsteinUhlenbeck1D(ConstantDiffusionProcess1D):
         self.d_f = (lambda x, t: -theta)
         super(OrnsteinUhlenbeck1D, self).__init__(lambda x, t: theta*(mu-x), D, **kwargs)
 
-    def update(self, x, t, **kwargs):
+    def update(self, xn, tn, **kwargs):
         """
-        Return the next sample for the time-discretized process.
+        Return the next sample for the time-discretized process, using the Gillespie method.
 
-        For the Ornstein-Uhlenbeck process, there is an exact method; see
-        D. T. Gillespie, Exact numerical simulation of the Ornstein-Uhlenbeck process and its
-                         integral, Phys. Rev. E 54, 2084 (1996).
+        Parameters
+        ----------
+        xn : float
+            The current position.
+        tn : float
+            The current time.
+
+        Keyword Arguments
+        -----------------
+        dt : float
+            The time step (default 0.1 if not overriden by a subclass).
+        dw : float
+            The brownian increment if precomputed.
+            By default, it is generated on the fly from a standard Gaussian distribution.
+        method : str
+            The numerical method for integration: 'gillespie' (default) or 'euler'.
+
+        Returns
+        -------
+        x : float
+            The position at time tn+dt.
+
+        Notes
+        -----
+        For the Ornstein-Uhlenbeck process, there is an exact method, the Gillespie algorithm [1]_.
+        This method is selected by default.
+        If necessary, the Euler-Maruyama method can still be chosen using the ``method`` keyword
+        argument.
+
+        References
+        ----------
+        .. [1] D. T. Gillespie, Exact numerical simulation of the Ornstein-Uhlenbeck process and its
+               integral, Phys. Rev. E 54, 2084 (1996).
         """
         if kwargs.pop('method', 'gillespie') == 'gillespie' and self.theta != 0:
             dt = kwargs.get('dt', self.default_dt)
-            xx = x*np.exp(-self.theta*dt)+np.sqrt(self.D0/self.theta*(1-np.exp(-2*self.theta*dt)))*np.random.normal(0.0, 1.0)
+            dw = kwargs.get('dw', np.random.normal(0.0, 1.0))
+            xx = xn*np.exp(-self.theta*dt) \
+                 + np.sqrt(self.D0/self.theta*(1-np.exp(-2*self.theta*dt)))*dw
         else:
-            xx = ConstantDiffusionProcess1D.update(self, x, t, **kwargs)
+            xx = ConstantDiffusionProcess1D.update(self, xn, tn, **kwargs)
         return xx
 
     def _instantoneq(self, t, Y):
