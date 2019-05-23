@@ -395,10 +395,6 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
         dw = kwargs.get('dw', np.random.normal(0.0, np.sqrt(dt)))
         return xn + self.drift(xn, tn)*dt + np.sqrt(2.0*self.D0)*dw
 
-    def time_reversal(self):
-        """ Apply time reversal and return the new model """
-        return StochModel1D_T(lambda x, t: -self.F(x, -t), self.D0)
-
     def traj_cond_gen(self, x0, t0, tau, M, **kwargs):
         """Generate trajectories conditioned on the first-passage time tau at value M.
         Initial conditions are (x0,t0).
@@ -699,11 +695,3 @@ class DrivenOrnsteinUhlenbeck1D(ConstantDiffusionProcess1D):
     """
     def __init__(self, mu, theta, D, A, Omega, phi, **kwargs):
         ConstantDiffusionProcess1D.__init__(self, lambda x, t: theta*(mu-x)+A*np.sin(Omega*t+phi), D, **kwargs)
-
-
-
-class StochModel1D_T(ConstantDiffusionProcess1D):
-    """ Time reversal of a given model """
-    def trajectory(self, x0, t0, **kwargs):
-        t, x = super(StochModel1D_T, self).trajectory(x0, t0, **kwargs)
-        return 2*t[0]-t, x
