@@ -11,9 +11,9 @@ This class can be subclassed for specific diffusion processes for which methods 
 both to simplify the code (e.g. directly enter analytical formulae when they are available) and for
 performance.
 As an exemple of this mechanism, we also provide in this module the `ConstantDiffusionProcess1D`
-class, for which the diffusion term is constant, the `OrnsteinUhlenbeck1D` class representing the
-particular case of the Ornstein-Uhlenbeck process, and the `Wiener1D` class corresponding to
-Brownian motion.
+class, for which the diffusion term is constant (additive noise), the `OrnsteinUhlenbeck1D` class
+representing the particular case of the Ornstein-Uhlenbeck process, and the `Wiener1D` class
+corresponding  to Brownian motion.
 These classes form a hierarchy deriving from the base class, `DiffusionProcess1D`.
 
 .. autoclass:: DiffusionProcess1D
@@ -343,7 +343,7 @@ class DiffusionProcess1D:
 
 class ConstantDiffusionProcess1D(DiffusionProcess1D):
     r"""
-    Diffusion processes in 1D with constant diffusion coefficient.
+    Diffusion processes in 1D with constant diffusion coefficient (additive noise).
 
     It corresponds to the family of SDEs :math:`dx_t = F(x_t, t)dt + \sigma dW_t`,
     where :math:`F` is a time-dependent vector field and :math:`W` the Wiener process.
