@@ -302,6 +302,51 @@ class DiffusionProcess1D:
         t, x = self.trajectory(x0, t0, **kwargs)
         return t[np.isfinite(x)][-1]
 
+    def empirical_vector(self, x0, t0, nsamples, *args, **kwargs):
+        """
+        Empirical vector at given times.
+
+        Parameters
+        ----------
+        x0 : float
+            Initial position.
+        t0 : float
+            Initial time.
+        nsamples : int
+            The size of the ensemble.
+        *args : variable length argument list
+            The times at which we want to estimate the empirical vector.
+
+        Keyword Arguments
+        -----------------
+        **kwargs :
+            Keyword arguments forwarded to :meth:`trajectory` and to :meth:`numpy.histogram`.
+
+        Yields
+        ------
+        t, pdf, bins : float, ndarray, ndarray
+            The time and histogram of the stochastic process at that time.
+
+        Notes
+        -----
+        This method computes the empirical vector, or in other words, the relative frequency of the
+        stochastic process at different times, conditioned on the initial condition.
+        At each time, the empirical vector is a random vector.
+        It is an estimator of the transition probability :math:`p(x, t | x_0, t_0)`.
+        """
+        hist_kwargs_keys = ('bins', 'range', 'weights') # hard-coded for now, we might use inspect
+        hist_kwargs = {key: kwargs[key] for key in kwargs if key in hist_kwargs_keys}
+        def traj_sample(x0, t0, *args, **kwargs):
+            for tsample in args:
+                t, x = self.trajectory(x0, t0, T=tsample-t0, **kwargs)
+                t0 = t[-1]
+                x0 = x[-1]
+                yield tsample, x0
+        for ensemble in zip(*[traj_sample(x0, t0, *args, **kwargs) for _ in range(nsamples)]):
+            time, obs = zip(*ensemble)
+            yield (time[0], ) + np.histogram(obs, density=True, **hist_kwargs)
+
+
     @classmethod
     def trajectoryplot(cls, *args, **kwargs):
         """
