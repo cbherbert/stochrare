@@ -183,7 +183,8 @@ class FokkerPlanck1D:
         t, X, P : float, ndarray, ndarray
             Time, sample points and solution of the Fokker-Planck equation at the sample points.
         """
-        t0 = kwargs.pop('t0', args[0])
+        if args:
+            t0 = kwargs.pop('t0', args[0])
         fun = kwargs.pop('integ', self.fpintegrate)
         for t in args:
             t, X, P = fun(t0, t-t0, **kwargs)
