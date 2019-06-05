@@ -17,6 +17,7 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
         "Intended Audience :: Science/Research",
+        "Intended Audience :: Education",
         "Topic :: Scientific/Engineering :: Physics",
     ],
 )
