@@ -15,6 +15,8 @@ setuptools.setup(
     install_requires=["matplotlib", "numpy", "scipy"],
     classifiers=[
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
         "Operating System :: OS Independent",
         "Intended Audience :: Science/Research",
         "Intended Audience :: Education",
