@@ -80,7 +80,7 @@ More efficient methods shall be added to the module in the future.
 import numpy as np
 import scipy.integrate
 import copy
-from .dynamics.stochastic1D import DiffusionProcess1D
+from .dynamics.diffusion1d import DiffusionProcess1D
 
 class InstantonSolver:
     """
