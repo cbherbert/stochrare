@@ -6,27 +6,39 @@ import sys
 import os
 import numpy as np
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-import stochpy.dynamics.stochastic as stochastic
-import stochpy.dynamics.stochastic1D as stochastic1d
+import stochpy.dynamics.diffusion as diffusion
+import stochpy.dynamics.diffusion1d as diffusion1d
 import stochpy.timeseries as ts
-import stochpy.ams as ams
+import stochpy.rare.ams as ams
 
 class TestStochastic(unittest.TestCase):
     def test_wiener_potential(self):
         data = np.ones(10)
-        np.testing.assert_array_equal(stochastic.Wiener(1).potential(data, 0.), np.zeros_like(data))
+        np.testing.assert_array_equal(diffusion.Wiener(1).potential(data), np.zeros_like(data))
         data = np.ones((10, 10))
-        np.testing.assert_array_equal(stochastic.Wiener(2).potential(data, 0.), np.zeros_like(data))
+        np.testing.assert_array_equal(diffusion.Wiener(2).potential(data), np.zeros_like(data))
 
-    def test_increment(self):
+    def test_update(self):
         dimension = 2
-        model = stochastic.DiffusionProcess(lambda x, t: 0,
-                                            lambda x, t: np.sqrt(2)*np.eye(dimension))
-        np.random.seed(seed=100)
-        increment_wiener = stochastic.Wiener(dimension).increment(np.zeros(dimension), 0)
-        np.random.seed(seed=100)
-        increment_diffusion = model.increment(np.zeros(dimension), 0)
-        np.testing.assert_allclose(increment_wiener, increment_diffusion)
+        wiener = diffusion.Wiener(dimension, D=0.5)
+        dw = np.random.normal(size=dimension)
+        np.testing.assert_array_equal(wiener.update(np.zeros(dimension), 0, dw=dw), dw)
+
+class TestDynamics1D(unittest.TestCase):
+    def test_update(self):
+        wiener = diffusion1d.Wiener1D(D=0.5)
+        dw = np.random.normal()
+        self.assertEqual(wiener.update(0, 0, dw=dw), dw)
+
+    def test_trajectory(self):
+        dt_brownian = 0.001
+        model = diffusion1d.DiffusionProcess1D(lambda x, t: 2*x, lambda x, t: x, deterministic=True)
+        wiener = diffusion1d.Wiener1D(D=0.5, deterministic=True)
+        brownian_path = wiener.trajectory(0., 0., T=1, dt=dt_brownian)
+        np.testing.assert_allclose(model.trajectory(1., 0., T=1, dt=0.001,
+                                                    brownian_path=brownian_path)[1],
+                                   model.trajectory(1., 0., T=1, dt=0.001, deltat=dt_brownian)[1],
+                                   rtol=1e-5)
 
 class TestRareEvents(unittest.TestCase):
     def test_blockmaximum(self):
@@ -55,7 +67,7 @@ class TestAMS(unittest.TestCase):
     def test_resample(self):
         told = np.linspace(0, 1, 101)
         xold = np.random.random(101)
-        algo = ams.TAMS(stochastic1d.OrnsteinUhlenbeck1D(0, 1, 0.5), (lambda t, x: x), 1.)
+        algo = ams.TAMS(diffusion1d.OrnsteinUhlenbeck1D(0, 1, 0.5), (lambda t, x: x), 1.)
         tnew, xnew = algo.resample(told[51], xold[51], told, xold, dt=0.01)
         np.testing.assert_allclose(xold[:52], xnew[:52])
         np.testing.assert_allclose(told, tnew)
@@ -72,7 +84,7 @@ class TestAMS(unittest.TestCase):
         np.testing.assert_array_equal(ams.TAMS.selectionstep(levels, npart=5)[0], [])
 
     def test_initialize(self):
-        algo = ams.TAMS(stochastic1d.OrnsteinUhlenbeck1D(0, 1, 0.5), (lambda t, x: x), 1.)
+        algo = ams.TAMS(diffusion1d.OrnsteinUhlenbeck1D(0, 1, 0.5), (lambda t, x: x), 1.)
         algo.initialize_ensemble(10, dt=0.01)
         self.assertEqual(algo._weight, 1)
         self.assertEqual(algo._levels.size, 10)
@@ -81,7 +93,7 @@ class TestAMS(unittest.TestCase):
             self.assertEqual(algo._ensemble[ind][0].size, algo._ensemble[ind][1].size)
 
     def test_mutateams(self):
-        algo = ams.TAMS(stochastic1d.OrnsteinUhlenbeck1D(0, 1, 0.5), (lambda t, x: x), 1.)
+        algo = ams.TAMS(diffusion1d.OrnsteinUhlenbeck1D(0, 1, 0.5), (lambda t, x: x), 1.)
         algo.initialize_ensemble(10, dt=0.01)
         kill, survive = algo.selectionstep(algo._levels)
         algo.mutationstep(kill, survive, dt=0.01)

@@ -6,7 +6,7 @@ import scipy.sparse as sps
 #   Finite Difference methods
 ###
 
-class FiniteDifferences(object):
+class FiniteDifferences:
     """ A simple class to implement finite-difference methods (1D only for now).
     The basic class is just an arbitrary grid.
     Subclasses should provide implementations for things like gradient, laplacian and so on
@@ -62,7 +62,7 @@ class RegularForwardFD(FiniteDifferences):
 #   Boundary Conditions for EDPs
 ###
 
-class BoundaryCondition(object):
+class BoundaryCondition:
     """ A generic class for implementing boundary conditions (1D only for now) """
     def __init__(self, fun):
         self.getbc = fun
@@ -89,7 +89,7 @@ class NeumannBC(BoundaryCondition):
 #   EDP Solvers
 ###
 
-class EDPSolver(object):
+class EDPSolver:
     """ Finite-difference solver for partial differential equations """
 
     @classmethod
@@ -105,7 +105,7 @@ class EDPSolver(object):
 
         return t, solgrid.grid, P
 
-class EDPLinSolver(object):
+class EDPLinSolver:
     """ Finite-difference solver for linear PDEs.
     For the forward (explicit in time) scheme, this implementation is SLOWER than EDPSolver.
     This class allows for easier implementation of the backward (implicit)

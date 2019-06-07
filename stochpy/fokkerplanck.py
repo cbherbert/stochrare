@@ -1,5 +1,17 @@
 """
-Numerical solver for the Fokker-Planck equations
+Numerical solvers for the Fokker-Planck equations
+=================================================
+
+.. currentmodule:: stochpy.fokkerplanck
+
+This module contains numerical solvers for the Fokker-Planck equations associated to diffusion
+processes.
+
+For now, it only contains a basic finite difference solver for the 1D case.
+
+.. autoclass:: FokkerPlanck1D
+   :members:
+
 """
 import numpy as np
 import scipy.integrate as integrate
@@ -7,13 +19,23 @@ import scipy.sparse as sps
 from . import edpy
 
 
-class FokkerPlanck1D(object):
-    """
-    Solver for the 1D Fokker-Planck equation
+class FokkerPlanck1D:
+    r"""
+    Solver for the 1D Fokker-Planck equation.
 
-    d_t P(x,t) = - a(x,t)d_x P(x,t) + D d^2 P(x,t)/d_x^2
+    :math:`\partial_t P(x,t) = - \partial_x a(x,t)P(x,t) + D \partial^2_{xx} P(x,t)`
 
-    This is just the legacy code which was migrated from the StochModel1D class.
+    Parameters
+    ----------
+    drift : function with two variables
+        The drift coefficient :math:`a(x, t)`.
+    diffusion : float
+        The constant diffusion coefficient :math:`D`.
+
+    Notes
+    -----
+    This is just the legacy code which was migrated from the
+    :class:`stochpy.dynamics.DiffusionProcess1D` class.
     It should be rewritten with a better structure.
     In particular, it only works with a constant diffusion for now.
     """
@@ -49,7 +71,7 @@ class FokkerPlanck1D(object):
         return sps.dia_matrix((self.drift(X.grid, t)[1:-1], np.array([0])),
                               shape=(X.N-2, X.N-2))*X.grad_mat() + self.diffusion*X.lapl_mat()
 
-    def _fpbc(self, fdgrid, bc=('absorbing', 'absorbing')):
+    def _fpbc(self, fdgrid, bc=('absorbing', 'absorbing'), **kwargs):
         """ Build the boundary conditions for the Fokker-Planck equation and return it.
         This is useful when at least one of the sides is a reflecting wall. """
         dx = fdgrid.dx
@@ -61,16 +83,60 @@ class FokkerPlanck1D(object):
             raise NotImplementedError("Unknown boundary conditions for the Fokker-Planck equations")
         return edpy.DirichletBC([0, 0]) if self.diffusion == 0 else dic[bc]
 
+    @classmethod
+    def gaussian1d(cls, mean, std, X):
+        """
+        Return a 1D Gaussian pdf.
+
+        Parameters
+        ----------
+        mean : float
+        std : float
+        X : ndarray
+            The sample points.
+
+        Returns
+        -------
+        pdf : ndarray
+            The Gaussian pdf at the sample points.
+        """
+        pdf = np.exp(-0.5*((X-mean)/std)**2)/(np.sqrt(2*np.pi)*std)
+        pdf /= integrate.trapz(pdf, X)
+        return pdf
+
     def fpintegrate(self, t0, T, **kwargs):
         """
         Numerical integration of the associated Fokker-Planck equation, or its adjoint.
-        Optional arguments are the following:
-        - bounds=(-10.0,10.0); domain where we should solve the equation
-        - npts=100;            number of discretization points in the domain (i.e. spatial resolution)
-        - dt;                  timestep (default choice suitable for the heat equation with forward scheme)
-        - bc;                  boundary conditions (either a BoundaryCondition object or a tuple sent to _fpbc)
-        - method=euler;        numerical scheme: explicit (default), implicit, or crank-nicolson
-        - adj=False;           integrate the adjoint FP rather than the forward FP?
+
+        Parameters
+        ----------
+        t0 : float
+            Initial time.
+        T : float
+            Integration time.
+
+        Keyword Arguments
+        -----------------
+        bounds : float 2-tuple
+            Domain where we should solve the equation (default (-10.0,10.0))
+        npts : ints
+            Number of discretization points in the domain (i.e. spatial resolution). Default: 100.
+        dt : float
+            Timestep (default choice suitable for the heat equation with forward scheme)
+        bc: stochpy.edpy.BoundaryCondition object or tuple
+            Boundary conditions (either a BoundaryCondition object or a tuple sent to _fpbc)
+        method : str
+            Numerical scheme: explicit ('euler', default), implicit, or crank-nicolson
+        adjoint : bool
+            Integrate the adjoint FP rather than the forward FP (default False).
+        P0 : str
+            Initial condition: 'gauss' (default), 'dirac' or 'uniform'.
+
+        Returns
+        -------
+        t, X, P : float, ndarray, ndarray
+            Final time, sample points and solution of the Fokker-Planck
+            equation at the sample points.
         """
         # Get computational parameters:
         B, A = kwargs.pop('bounds', (-10.0, 10.0))
@@ -83,8 +149,7 @@ class FokkerPlanck1D(object):
         # Prepare initial P(x):
         P0 = kwargs.pop('P0', 'gauss')
         if P0 == 'gauss':
-            P0 = np.exp(-0.5*((fdgrid.grid-kwargs.get('P0center', 0.0))/kwargs.get('P0std', 1.0))**2)/(np.sqrt(2*np.pi)*kwargs.get('P0std', 1.0))
-            P0 /= integrate.trapz(P0, fdgrid.grid)
+            P0 = self.gaussian1d(kwargs.get('P0center', 0.0), kwargs.get('P0std', 1.0), fdgrid.grid)
         if P0 == 'dirac':
             P0 = np.zeros_like(fdgrid.grid)
             np.put(P0, len(fdgrid.grid[fdgrid.grid < kwargs.get('P0center', 0.0)]), 1.0)
@@ -104,9 +169,22 @@ class FokkerPlanck1D(object):
         else:
             return t0, fdgrid.grid, P0
 
-    def pdfgen(self, *args, **kwargs):
-        """ Generate the pdf solution of the FP equation at various times """
-        t0 = kwargs.pop('t0', args[0])
+    def fpintegrate_generator(self, *args, **kwargs):
+        """
+        Numerical integration of the associated Fokker-Planck equation, generator version.
+
+        Parameters
+        ----------
+        *args : variable length argument list
+            Times at which to yield the pdf.
+
+        Yields
+        ------
+        t, X, P : float, ndarray, ndarray
+            Time, sample points and solution of the Fokker-Planck equation at the sample points.
+        """
+        if args:
+            t0 = kwargs.pop('t0', args[0])
         fun = kwargs.pop('integ', self.fpintegrate)
         for t in args:
             t, X, P = fun(t0, t-t0, **kwargs)

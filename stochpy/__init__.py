@@ -4,6 +4,6 @@ stochpy is a package to simulate simple stochastic processes
 See README.md for more information.
 """
 
-from . import data, edpy, dynamics, timeseries, ams, instanton
+from . import dynamics, edpy, fokkerplanck, firstpassage, timeseries, rare, io, utils
 
-__all__ = ['data', 'edpy', 'dynamics', 'timeseries', 'ams', 'instanton']
+__all__ = ['dynamics', 'edpy', 'fokkerplanck', 'firstpassage', 'timeseries', 'rare', 'io', 'utils']
