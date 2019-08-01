@@ -530,7 +530,7 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
         th : bool
             Plot theoretical solution, if it exists, on top of PDF.
         """
-        fig, ax, _ = plot.pdf_plot1d(legend=False, title=r'$\epsilon='+str(self.D0)+'$')
+        fig, ax, _ = plot.pdf_plot1d(legend=False, title=r'$D='+str(self.D0)+'$')
         kw_integ = ('dt', 'npts', 'bounds', 't0', 'P0', 'bc', 'method', 'adjoint')
         fpe = fp.FokkerPlanck1D(self.drift, self.D0)
         fpgen = fpe.fpintegrate_generator(*args,
