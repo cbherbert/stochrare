@@ -28,7 +28,7 @@ author = 'Corentin Herbert'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.autodoc', 'sphinx.ext.autosummary', 'sphinx.ext.napoleon',
+    'sphinx.ext.autodoc', 'sphinx.ext.autosummary', 'sphinx.ext.napoleon', 'nbsphinx'
 ]
 
 # Add any paths that contain templates here, relative to this directory.

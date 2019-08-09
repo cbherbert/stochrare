@@ -11,26 +11,5 @@ StochPy documentation
    :caption: Contents:
 
    install
-
-API Reference
--------------
-
-StochPy is organized in several modules serving different purposes:
-
-.. autosummary::
-   :toctree: generated/
-
-   stochpy.dynamics
-   stochpy.fokkerplanck
-   stochpy.firstpassage
-   stochpy.rare
-   stochpy.io
-   stochpy.utils
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+   userguide
+   api
