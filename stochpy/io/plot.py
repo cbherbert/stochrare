@@ -13,6 +13,7 @@ This module contains several functions for making quick plots.
 .. autofunction:: returntime_plot
 """
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 def trajectory_plot1d(*args, **kwargs):
     """
@@ -111,6 +112,51 @@ def pdf_plot1d(*args, legend=True, **kwargs):
         #ax.legend(**(kwargs.get('legend_args', {})))
         ax.legend()
     return fig, ax, lines
+
+def ensemble_plot1d_box(*args, **kwargs):
+    """
+    Plot an ensemble of 1D trajectories in a 3D box.
+
+    Parameters
+    ----------
+    *args : variable length argument list
+        trajs: tuple (t, x) or (t, x, kwargs_dict)
+
+    Keyword Arguments
+    -----------------
+    fig : matplotlig.figure.Figure
+        Figure object to use for the plot. Create one if not provided.
+    ax : matplotlig.axes.Axes
+        Axes object to use for the plot. Create one if not provided.
+
+    Returns
+    -------
+    fig, ax: matplotlib.figure.Figure, matplotlib.axes.Axes
+        The figure.
+    """
+    plt.style.use('dark_background')
+    if 'fig' in kwargs:
+        fig = kwargs.pop('fig')
+    else:
+        fig = plt.figure()
+    if 'ax' in kwargs:
+        ax = kwargs.pop('ax')
+    else:
+        ax = fig.add_subplot(111, projection='3d')
+        ax.set_xlabel(r'$t$', color='white')
+        ax.set_zlabel(r'$x$', color='white')
+        ax.grid(False)
+        ax.set_yticks([])
+        ax.w_xaxis.pane.fill = False
+        ax.w_yaxis.pane.fill = False
+        ax.w_zaxis.pane.fill = False
+    default_opts = {'zdir': 'y', 'color': 'steelblue', 'alpha': 0.6}
+    for z, traj in enumerate(args):
+        opts = default_opts.copy()
+        if len(traj) > 2:
+            opts.update(traj[2])
+        ax.plot(traj[0], traj[1], z, **opts)
+    return fig, ax
 
 def returntime_plot(*args):
     """
