@@ -1,5 +1,8 @@
+develop:
+	pip install --user -e .
+
 install:
-	python setup.py install --user
+	pip install --user .
 
 tests:
 	python tests.py
