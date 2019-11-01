@@ -125,7 +125,7 @@ class FirstPassageProcess:
         time = np.sort([t0]+list(args))
         time = time[time >= t0]
         G = [1.0 if x0 < A else 0.0]
-        fpe = fp.FokkerPlanck1D(self.model.F, self.model.D0)
+        fpe = fp.FokkerPlanck1D.from_sde(self.model)
         t, X, P = fpe.fpintegrate(t0, 0.0, P0='dirac', P0center=x0, bounds=bnds, **kwargs)
         for t in time[1:]:
             t, X, P = fpe.fpintegrate(t0, t-t0, P0=P, bounds=bnds, **kwargs)

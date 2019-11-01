@@ -23,62 +23,86 @@ class FokkerPlanck1D:
     r"""
     Solver for the 1D Fokker-Planck equation.
 
-    :math:`\partial_t P(x,t) = - \partial_x a(x,t)P(x,t) + D \partial^2_{xx} P(x,t)`
+    :math:`\partial_t P(x, t) = - \partial_x a(x, t)P(x, t) + \partial^2_{xx} D(x, t) P(x, t)`
 
     Parameters
     ----------
     drift : function with two variables
         The drift coefficient :math:`a(x, t)`.
-    diffusion : float
-        The constant diffusion coefficient :math:`D`.
+    diffusion : function with two variables
+        The diffusion coefficient :math:`D(x, t)`.
 
     Notes
     -----
     This is just the legacy code which was migrated from the
     :class:`stochpy.dynamics.DiffusionProcess1D` class.
     It should be rewritten with a better structure.
-    In particular, it only works with a constant diffusion for now.
     """
     def __init__(self, drift, diffusion):
         """
         drift: function of two variables (x, t)
-        diffusion: diffusion coefficient (float).
+        diffusion: function of two variables (x, t).
         """
         self.drift = drift
         self.diffusion = diffusion
 
+    @classmethod
+    def from_sde(cls, model):
+        r"""
+        Construct and return a Fokker-Planck object from a DiffusionProcess object.
+        The only thing this constructor does is define the diffusion coefficient :math:`D(x, t)`
+        from the diffusion of the stochastic process :math:`\sigma(x, t)` as
+        :math:`D(x, t)=\sigma(x, t)^2/2`.
+        """
+        return FokkerPlanck1D(model.drift, lambda x, t: 0.5*model.diffusion(x, t)**2)
+
     def _fpeq(self, P, X, t):
         """ Right hand side of the Fokker-Planck equation """
-        return -X.grad(self.drift(X.grid, t)*P) + self.diffusion*X.laplacian(P)
+        return -X.grad(self.drift(X.grid, t)*P) + X.laplacian(self.diffusion(X.grid, t)*P)
 
     def _fpadj(self, G, X, t):
         """
         The adjoint of the Fokker-Planck operator, useful for instance
         in first passage time problems for homogeneous processes.
         """
-        return self.drift(X.grid, t)[1:-1]*X.grad(G)+self.diffusion*X.laplacian(G)
+        return self.drift(X.grid, t)[1:-1]*X.grad(G)+self.diffusion(X.grid, t)*X.laplacian(G)
 
     def _fpmat(self, X, t):
         """
         Sparse matrix representation of the linear operator
         corresponding to the RHS of the FP equation
         """
-        return -X.grad_mat()*sps.dia_matrix((self.drift(X.grid, t), np.array([0])),
-                                            shape=(X.N, X.N)) + self.diffusion*X.lapl_mat()
+        Ldrift = -X.grad_mat()*sps.dia_matrix((self.drift(X.grid, t), np.array([0])),
+                                              shape=(X.N, X.N))
+        Ldiff = X.lapl_mat()*sps.dia_matrix((self.diffusion(X.grid, t), np.array([0])),
+                                            shape=(X.N, X.N))
+        return Ldrift + Ldiff
 
     def _fpadjmat(self, X, t):
         """ Sparse matrix representation of the adjoint of the FP operator """
-        return sps.dia_matrix((self.drift(X.grid, t)[1:-1], np.array([0])),
-                              shape=(X.N-2, X.N-2))*X.grad_mat() + self.diffusion*X.lapl_mat()
+        Ladv = sps.dia_matrix((self.drift(X.grid, t)[1:-1], np.array([0])),
+                              shape=(X.N-2, X.N-2))*X.grad_mat()
+        Ldiff = sps.dia_matrix((self.diffusion(X.grid, t)[1:-1], np.array([0])),
+                               shape=(X.N-2, X.N-2))*X.lapl_mat()
+        return Ladv + Ldiff
 
-    def _fpbc(self, fdgrid, bc=('absorbing', 'absorbing'), **kwargs):
+    def _fpbc(self, fdgrid, bc=('absorbing', 'absorbing')):
         """ Build the boundary conditions for the Fokker-Planck equation and return it.
         This is useful when at least one of the sides is a reflecting wall. """
         dx = fdgrid.dx
-        dic = {('absorbing', 'absorbing'): edpy.DirichletBC([0, 0]),
-               ('absorbing', 'reflecting'): edpy.BoundaryCondition(lambda Y, X, t: [0,Y[-2]/(1-self.drift(X[-1], t)*dx/self.diffusion)]),
-               ('reflecting', 'absorbing'): edpy.BoundaryCondition(lambda Y, X, t: [Y[1]/(1+self.drift(X[0], t)*dx/self.diffusion),0]),
-               ('reflecting', 'reflecting'): edpy.BoundaryCondition(lambda Y, X, t: [Y[1]/(1+self.drift(X[0], t)*dx/self.diffusion), Y[-2]/(1-self.drift(X[-1], t)*dx/self.diffusion)])}
+        def refleft(yr, xl, xr, t):
+            return yr*self.diffusion(xr, t)/(self.diffusion(xl, t)+self.drift(xl, t)*dx)
+        def refright(yl, xl, xr, t):
+            return yl*self.diffusion(xl, t)/(self.diffusion(xr, t)-self.drift(xr, t)*dx)
+        dic = {('absorbing', 'absorbing'):
+                   edpy.DirichletBC([0, 0]),
+               ('absorbing', 'reflecting'):
+                   edpy.BoundaryCondition(lambda Y, X, t: [0, refright(Y[-2], X[-2], X[-1], t)]),
+               ('reflecting', 'absorbing'):
+                   edpy.BoundaryCondition(lambda Y, X, t: [refleft(Y[1], X[0], X[1], t), 0]),
+               ('reflecting', 'reflecting'):
+                   edpy.BoundaryCondition(lambda Y, X, t: [refleft(Y[1], X[0], X[1], t),
+                                                           refright(Y[-2], X[-2], X[-1], t)])}
         if bc not in dic:
             raise NotImplementedError("Unknown boundary conditions for the Fokker-Planck equations")
         return edpy.DirichletBC([0, 0]) if self.diffusion == 0 else dic[bc]
@@ -142,8 +166,8 @@ class FokkerPlanck1D:
         B, A = kwargs.pop('bounds', (-10.0, 10.0))
         Np = kwargs.pop('npts', 100)
         fdgrid = edpy.RegularCenteredFD(B, A, Np)
-        dt = kwargs.pop('dt', 0.25*(np.abs(B-A)/(Np-1))**2/self.diffusion)
-        bc = self._fpbc(fdgrid, **kwargs)
+        dt = kwargs.pop('dt', 0.25*(np.abs(B-A)/(Np-1))**2/self.diffusion(0.5*(A+B), t0))
+        bc = self._fpbc(fdgrid)
         method = kwargs.pop('method', 'euler')
         adj = kwargs.pop('adjoint', False)
         # Prepare initial P(x):
