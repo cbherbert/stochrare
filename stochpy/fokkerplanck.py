@@ -72,10 +72,10 @@ class FokkerPlanck1D:
         Sparse matrix representation of the linear operator
         corresponding to the RHS of the FP equation
         """
-        Ldrift = -X.grad_mat()*sps.dia_matrix((self.drift(X.grid, t), np.array([0])),
-                                              shape=(X.N, X.N))
-        Ldiff = X.lapl_mat()*sps.dia_matrix((self.diffusion(X.grid, t), np.array([0])),
-                                            shape=(X.N, X.N))
+        driftvec = np.array([self.drift(x, t) for x in X.grid])
+        diffvec = np.array([self.diffusion(x, t) for x in X.grid])
+        Ldrift = -X.grad_mat()*sps.dia_matrix((driftvec, np.array([0])), shape=(X.N, X.N))
+        Ldiff = X.lapl_mat()*sps.dia_matrix((diffvec, np.array([0])), shape=(X.N, X.N))
         return Ldrift + Ldiff
 
     def _fpadjmat(self, X, t):
