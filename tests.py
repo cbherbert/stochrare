@@ -8,6 +8,7 @@ import numpy as np
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import stochpy.dynamics.diffusion as diffusion
 import stochpy.dynamics.diffusion1d as diffusion1d
+import stochpy.fokkerplanck as fp
 import stochpy.timeseries as ts
 import stochpy.rare.ams as ams
 
@@ -39,6 +40,28 @@ class TestDynamics1D(unittest.TestCase):
                                                     brownian_path=brownian_path)[1],
                                    model.trajectory(1., 0., T=1, dt=0.001, deltat=dt_brownian)[1],
                                    rtol=1e-5)
+
+class TestFokkerPlanck(unittest.TestCase):
+    def test_fpsolver_explicit_heat(self):
+        wiener = diffusion1d.Wiener1D()
+        fpe = fp.FokkerPlanck1D.from_sde(wiener)
+        t, X, P = fpe.fpintegrate(0, 10, dt=0.001, npts=400, bounds=(-20., 20.),
+                                  P0='dirac', bc=('absorbing', 'absorbing'), method='explicit')
+        np.testing.assert_allclose(P, wiener._fpthsol(X, t), atol=1e-3)
+
+    def test_fpsolver_implicit_heat(self):
+        wiener = diffusion1d.Wiener1D()
+        fpe = fp.FokkerPlanck1D.from_sde(wiener)
+        t, X, P = fpe.fpintegrate(0, 10, dt=0.05, npts=400, bounds=(-20., 20.),
+                                  P0='dirac', bc=('absorbing', 'absorbing'), method='implicit')
+        np.testing.assert_allclose(P, wiener._fpthsol(X, t), atol=1e-3)
+
+    def test_fpsolver_cranknicolson_heat(self):
+        wiener = diffusion1d.Wiener1D()
+        fpe = fp.FokkerPlanck1D.from_sde(wiener)
+        t, X, P = fpe.fpintegrate(0, 10, dt=0.025, npts=400, bounds=(-20., 20.),
+                                  P0='dirac', bc=('absorbing', 'absorbing'), method='cn')
+        np.testing.assert_allclose(P, wiener._fpthsol(X, t), atol=1e-3)
 
 class TestRareEvents(unittest.TestCase):
     def test_blockmaximum(self):
