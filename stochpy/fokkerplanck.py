@@ -80,10 +80,10 @@ class FokkerPlanck1D:
 
     def _fpadjmat(self, X, t):
         """ Sparse matrix representation of the adjoint of the FP operator """
-        Ladv = sps.dia_matrix((self.drift(X.grid, t)[1:-1], np.array([0])),
-                              shape=(X.N-2, X.N-2))*X.grad_mat()
-        Ldiff = sps.dia_matrix((self.diffusion(X.grid, t)[1:-1], np.array([0])),
-                               shape=(X.N-2, X.N-2))*X.lapl_mat()
+        driftvec = np.array([self.drift(x, t) for x in X.grid])
+        diffvec = np.array([self.diffusion(x, t) for x in X.grid])
+        Ladv = sps.dia_matrix((driftvec[1:-1], np.array([0])), shape=(X.N-2, X.N-2))*X.grad_mat()
+        Ldiff = sps.dia_matrix((diffvec[1:-1], np.array([0])), shape=(X.N-2, X.N-2))*X.lapl_mat()
         return Ladv + Ldiff
 
     def _fpbc(self, fdgrid, bc=('absorbing', 'absorbing')):
