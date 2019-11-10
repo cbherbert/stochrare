@@ -134,35 +134,3 @@ class EDPLinSolver:
             t += dt
 
         return t, solgrid.grid, P
-
-###
-#   Test: numerical integration of the heat equation
-###
-
-def testfp(t0, B, M, Np, dt, niter, Deltat, **kwargs):
-
-    fig = plt.figure()
-    ax = plt.axes()
-
-    X = np.linspace(B, M, num=Np)
-    P = kwargs.get('P', np.exp(-0.5*X**2)/np.sqrt(2*np.pi))
-    model = kwargs.get('model', Wiener())
-
-    ax.plot(X, P, label='t='+str(t0))
-    t = t0
-    for k in range(niter):
-        t, P = model.fpintegrate(t, Deltat, B, M, Np, dt, P=P)
-        ax.plot(X, P, label='t='+str(t))
-
-    ax.grid()
-    ax.set_xlabel('$x$')
-    ax.set_ylabel('$P(x,t)$')
-    #plt.legend(bbox_to_anchor=(1.05, 1),loc=2, borderaxespad=0.)
-    plt.legend()
-    plt.show()
-
-def testfp_diffusion(t0, Np, dt):
-    testfp(t0, -10.0, 10.0, Np, dt, 5, 1.0)
-
-def testfp_saddlenode(t0, M, Np, dt):
-    testfp(t0, t0, M, Np, dt, 2, 1.0, model=StochSaddleNode(1.0), P=np.exp(-0.5*(np.linspace(t0, M, num=Np)+np.sqrt(np.abs(t0)))**2)/np.sqrt(2*np.pi))
