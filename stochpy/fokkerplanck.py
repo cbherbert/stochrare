@@ -128,6 +128,52 @@ class FokkerPlanck1D:
         pdf /= integrate.trapz(pdf, X)
         return pdf
 
+    @classmethod
+    def dirac1d(cls, pos, X):
+        """
+        Return a PDF for a certain event.
+
+        Parameters
+        ----------
+        pos : float
+            The value occurring with probability one.
+        X : ndarray
+            The sample points.
+
+        Returns
+        -------
+        pdf : ndarray
+            The pdf at the sample points.
+
+        Notes
+        -----
+        The method actually returns a vector with a one at the first sample point larger than `pos`.
+        """
+        pdf = np.zeros_like(X)
+        np.put(pdf, len(X[X < pos]), 1.0)
+        pdf /= integrate.trapz(pdf, X)
+        return pdf
+
+    @classmethod
+    def uniform1d(cls, X):
+        """
+        Return a uniform PDF.
+
+        Parameters
+        ----------
+        X : ndarray
+            The sample points.
+
+        Returns
+        -------
+        pdf : ndarray
+            The pdf at the sample points.
+        """
+        pdf = np.ones_like(X)
+        pdf /= integrate.trapz(pdf, X)
+        return pdf
+
+
     def fpintegrate(self, t0, T, **kwargs):
         """
         Numerical integration of the associated Fokker-Planck equation, or its adjoint.
@@ -142,7 +188,7 @@ class FokkerPlanck1D:
         Keyword Arguments
         -----------------
         bounds : float 2-tuple
-            Domain where we should solve the equation (default (-10.0,10.0))
+            Domain where we should solve the equation (default (-10.0, 10.0))
         npts : ints
             Number of discretization points in the domain (i.e. spatial resolution). Default: 100.
         dt : float
@@ -153,8 +199,8 @@ class FokkerPlanck1D:
             Numerical scheme: explicit ('euler', default), implicit, or crank-nicolson
         adjoint : bool
             Integrate the adjoint FP rather than the forward FP (default False).
-        P0 : str
-            Initial condition: 'gauss' (default), 'dirac' or 'uniform'.
+        P0 : ndarray
+            Initial condition (default is a standard normal distribution).
 
         Returns
         -------
@@ -171,16 +217,7 @@ class FokkerPlanck1D:
         method = kwargs.pop('method', 'euler')
         adj = kwargs.pop('adjoint', False)
         # Prepare initial P(x):
-        P0 = kwargs.pop('P0', 'gauss')
-        if P0 == 'gauss':
-            P0 = self.gaussian1d(kwargs.get('P0center', 0.0), kwargs.get('P0std', 1.0), fdgrid.grid)
-        if P0 == 'dirac':
-            P0 = np.zeros_like(fdgrid.grid)
-            np.put(P0, len(fdgrid.grid[fdgrid.grid < kwargs.get('P0center', 0.0)]), 1.0)
-            P0 /= integrate.trapz(P0, fdgrid.grid)
-        if P0 == 'uniform':
-            P0 = np.ones_like(fdgrid.grid)
-            P0 /= integrate.trapz(P0, fdgrid.grid)
+        P0 = kwargs.pop('P0', self.gaussian1d(0.0, 1.0, fdgrid.grid))
         # Numerical integration:
         if T > 0:
             if method in ('impl', 'implicit', 'bwd', 'backward',

@@ -117,8 +117,6 @@ class FirstPassageProcess:
         t0 = kwargs.pop('t0', 0.0)
         if 'P0' in kwargs:
             del kwargs['P0']
-        if 'P0center' in kwargs:
-            del kwargs['P0center']
         if 'bc' not in kwargs:
             kwargs['bc'] = ('reflecting', 'absorbing')
         bnds = (kwargs.pop('bounds', (-10.0, 0.0))[0], A)
@@ -126,7 +124,8 @@ class FirstPassageProcess:
         time = time[time >= t0]
         G = [1.0 if x0 < A else 0.0]
         fpe = fp.FokkerPlanck1D.from_sde(self.model)
-        t, X, P = fpe.fpintegrate(t0, 0.0, P0='dirac', P0center=x0, bounds=bnds, **kwargs)
+        P0 = fpe.dirac1d(x0, np.linspace(bnds[0], bnds[1], num=kwargs.get('npts', 100)))
+        t, X, P = fpe.fpintegrate(t0, 0.0, P0=P0, bounds=bnds, **kwargs)
         for t in time[1:]:
             t, X, P = fpe.fpintegrate(t0, t-t0, P0=P, bounds=bnds, **kwargs)
             G += [integrate.trapz(P[X < A], X[X < A])]
