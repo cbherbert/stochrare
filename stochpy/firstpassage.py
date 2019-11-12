@@ -111,8 +111,8 @@ class FirstPassageProcess:
 
     def firstpassagetime_cdf(self, x0, A, *args, **kwargs):
         """
-        Computes the CDF of the first passage time, Prob_{x0,t0}[\tau_A<t]
-        by solving the Fokker-Planck equation
+        Computes the CDF of the first passage time, :math:`Prob_{x0,t0}[\tau_A<t]`,
+        or its derivatives, by solving the Fokker-Planck equation.
         """
         t0 = kwargs.pop('t0', 0.0)
         if 'P0' in kwargs:
@@ -134,6 +134,35 @@ class FirstPassageProcess:
         output = {'cdf': (time, 1.0-G), 'G': (time, G),
                   'pdf': (time[1:-1], -edpy.CenteredFD(time).grad(G)),
                   'lambda': (time[1:-1], -edpy.CenteredFD(time).grad(np.log(G)))}
+        return output.get(kwargs.get('out', 'G'))
+
+    def firstpassagetime_cdf_adjoint(self, x0, A, *args, **kwargs):
+        """
+        Computes the CDF of the first passage time, :math:`Prob_{x0,t0}[\tau_A<t]`,
+        or its derivatives, by solving the adjoint Fokker-Planck equation.
+        """
+        t0 = kwargs.pop('t0', 0.0)
+        if 'P0' in kwargs:
+            del kwargs['P0']
+        if 'bc' not in kwargs:
+            kwargs['bc'] = ('reflecting', 'absorbing')
+        time = np.sort([t0]+list(args))
+        time = time[time >= t0]
+        bnds = (kwargs.pop('bounds', (-10.0, 0.0))[0], A)
+        fpe = fp.FokkerPlanck1DBackward(self.model.drift,
+                                        lambda x, t: 0.5*self.model.diffusion(x, t)**2)
+        Gloc = [1.0 if x0 < A else 0.0]
+        G0 = np.ones(kwargs.get('npts', 100))
+        G0[np.linspace(bnds[0], bnds[1], kwargs.get('npts', 100)) >= A] = 0.0
+        t, X, G = fpe.fpintegrate(t0, 0.0, P0=G0, bounds=bnds, **kwargs)
+        for t in time[1:]:
+            t, X, G = fpe.fpintegrate(t0, t-t0, P0=G, bounds=bnds, **kwargs)
+            Gloc += [G[X <= x0][-1]]
+            t0 = t
+        Gloc = np.array(Gloc)
+        output = {'cdf': (time, 1.0-Gloc), 'G': (time, Gloc),
+                  'pdf': (time[1:-1], -edpy.CenteredFD(time).grad(Gloc)),
+                  'lambda': (time[1:-1], -edpy.CenteredFD(time).grad(np.log(Gloc)))}
         return output.get(kwargs.get('out', 'G'))
 
     def firstpassagetime_moments(self, x0, A, *args, **kwargs):
