@@ -180,6 +180,70 @@ class FirstPassageProcess:
             Mn += [t0**n + n*integrate.trapz(cdf*times**(n-1), times)]
         return Mn
 
+    def firstpassagetime_avg_theory(self, x0, *args, **kwargs):
+        r"""
+        Compute the mean first-passage time using the theoretical formula:
+
+        :math:`\mathbb{E}[\tau_M] = \frac{1}{D} \int_{x_0}^{M} dx e^{V(x)/D} \int_{-\infty}^x e^{-V(y)/D}dy.`
+
+        This formula is valid for a homogeneous process, conditioned on the initial position :math:`x_0`.
+
+        Parameters
+        ----------
+        x0 : float
+            Initial position
+        """
+        t0 = kwargs.pop('t0', 0.0)
+        inf = kwargs.pop('inf', -10.0)
+        # args have to be sorted in increasing order:
+        args = np.sort(args)
+        # remove the values of args which are <= x0:
+        badargs, args = (args[args <= x0], args[args > x0])
+
+        def exppot_int(a, b, sign=-1, fun=lambda z: 1):
+            z = np.linspace(a, b)
+            return integrate.trapz(np.exp(sign*self.model.potential(z, t0)/self.model.D0)*fun(z), z)
+        # compute the inner integral and interpolate:
+        y = np.linspace(x0, args[-1])
+        arr = np.array([exppot_int(*u) for u in [(inf, y[0])]+list(zip(y[:-1], y[1:]))])
+        ifun = interp1d(y, arr.cumsum())
+        # now compute the outer integral by chunks
+        oint = np.array([exppot_int(*bds, sign=1, fun=ifun) for bds in [(x0, args[0])]+list(zip(args[:-1], args[1:]))]).cumsum()/self.model.D0
+        return np.concatenate((badargs, args)), np.concatenate((np.zeros_like(badargs), oint))
+
+    def firstpassagetime_avg_theory2(self, x0, *args, **kwargs):
+        r"""
+        Compute the mean first-passage time using the theoretical formula:
+
+        :math:`\mathbb{E}[\tau_M] = \frac{1}{D} \int_{x_0}^{M} dx e^{V(x)/D} \int_{-\infty}^x e^{-V(y)/D}dy.`
+
+        This formula is valid for a homogeneous process, conditioned on the initial position :math:`x_0`.
+
+        Parameters
+        ----------
+        x0 : float
+            Initial position
+        """
+        t0 = kwargs.pop('t0', 0.0)
+        inf = kwargs.pop('inf', -10.0)
+        # args have to be sorted in increasing order:
+        args = np.sort(args)
+        # remove the values of args which are <= x0:
+        badargs, args = (args[args <= x0], args[args > x0])
+
+        def exppot(y, sign=-1, fun=lambda z: 1):
+            return np.exp(sign*self.model.potential(y, t0)/self.model.D0)*fun(y)
+        # compute the inner integral and interpolate:
+        z = np.linspace(inf, args[-1])
+        iarr = integrate.cumtrapz(exppot(z), z, initial=0)
+        ifun = interp1d(z, iarr)
+        # now compute the outer integral by chunks
+        y = np.linspace(x0, args[-1])
+        oarr = integrate.cumtrapz(exppot(y, sign=1, fun=ifun), y, initial=0)/self.model.D0
+        ofun = interp1d(y, oarr)
+        return np.concatenate((badargs, args)), np.concatenate((np.zeros_like(badargs), ofun(args)))
+
+
     def firstpassagetime_avg(self, x0, *args, **kwargs):
         """
         Compute the mean first passage time by one of the following methods:
@@ -195,33 +259,14 @@ class FirstPassageProcess:
         tmax = kwargs.pop('tmax', 100.0)
         nt = kwargs.pop('nt', 10)
         t0 = kwargs.pop('t0', 0.0)
-        inf = kwargs.pop('inf', -10.0)
         # args have to be sorted in increasing order:
         args = np.sort(args)
         # remove the values of args which are <= x0:
         badargs, args = (args[args <= x0], args[args > x0])
         if src == 'theory':
-            def exppot_int(a, b, sign=-1, fun=lambda z: 1):
-                z = np.linspace(a, b)
-                return integrate.trapz(np.exp(sign*self.model.potential(z, t0)/self.model.D0)*fun(z), z)
-            # compute the inner integral and interpolate:
-            y = np.linspace(x0, args[-1])
-            arr = np.array([exppot_int(*u) for u in [(inf, y[0])]+zip(y[:-1], y[1:])])
-            ifun = interp1d(y, arr.cumsum())
-            # now compute the outer integral by chunks
-            return np.concatenate((badargs, args)), np.array(len(badargs)*[0.]+[exppot_int(*bds, sign=1, fun=ifun) for bds in [(x0, args[0])]+zip(args[:-1], args[1:])]).cumsum()/self.model.D0
+            return self.firstpassagetime_avg_theory(x0, *args, **kwargs)
         elif src == 'theory2':
-            def exppot(y, sign=-1, fun=lambda z: 1):
-                return np.exp(sign*self.model.potential(y, t0)/self.model.D0)*fun(y)
-            # compute the inner integral and interpolate:
-            z = np.linspace(inf, args[-1])
-            iarr = integrate.cumtrapz(exppot(z), z, initial=0)
-            ifun = interp1d(z, iarr)
-            # now compute the outer integral by chunks
-            y = np.linspace(x0, args[-1])
-            oarr = integrate.cumtrapz(exppot(y, sign=1, fun=ifun), y, initial=0)/self.model.D0
-            ofun = interp1d(y, oarr)
-            return np.concatenate((badargs, args)), np.concatenate((len(badargs)*[0.], ofun(args)))
+            return self.firstpassagetime_avg_theory2(x0, *args, **kwargs)
         elif src == 'adjoint':
             # here we need to solve the adjoint FP equation for each threshold value,
             # so this is much more expensive than the theoretical formula of course.
