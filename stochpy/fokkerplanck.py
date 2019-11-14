@@ -9,7 +9,13 @@ processes.
 
 For now, it only contains a basic finite difference solver for the 1D case.
 
+.. autoclass:: FokkerPlanck1DAbstract
+   :members:
+
 .. autoclass:: FokkerPlanck1D
+   :members:
+
+.. autoclass:: FokkerPlanck1DBackward
    :members:
 
 """
