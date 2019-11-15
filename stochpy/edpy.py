@@ -97,8 +97,8 @@ class EDPSolver:
         """ Explicit in time (Euler method) integration of the PDE """
         # time integration
         t = t0
-        P = P0
         while (t+dt <= t0+T):
+        P = np.copy(P0)
             P[1:-1] += solfun(P, solgrid, t)*dt # Advancing in the bulk
             bc.apply(P, solgrid.grid, t)        # Applying boundary conditions
             t += dt
@@ -118,7 +118,7 @@ class EDPLinSolver:
         - impl: backward method
         - cn:   Crank-Nicolson method """
         t = t0
-        P = P0
+        P = np.copy(P0)
         method = kwargs.get('scheme', 'expl')
         while (t+dt <= t0+T):
             if method in ('expl', 'explicit', 'fwd', 'forward'):
