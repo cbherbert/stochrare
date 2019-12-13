@@ -6,11 +6,11 @@ import sys
 import os
 import numpy as np
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-import stochpy.dynamics.diffusion as diffusion
-import stochpy.dynamics.diffusion1d as diffusion1d
-import stochpy.fokkerplanck as fp
-import stochpy.timeseries as ts
-import stochpy.rare.ams as ams
+import stochrare.dynamics.diffusion as diffusion
+import stochrare.dynamics.diffusion1d as diffusion1d
+import stochrare.fokkerplanck as fp
+import stochrare.timeseries as ts
+import stochrare.rare.ams as ams
 
 class TestStochastic(unittest.TestCase):
     def test_wiener_potential(self):

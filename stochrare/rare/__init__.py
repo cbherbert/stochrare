@@ -2,7 +2,7 @@
 Rare event algorithms
 =====================
 
-.. currentmodule:: stochpy.rare
+.. currentmodule:: stochrare.rare
 
 This module contains numerical algorithms designed specifically to sample rare events.
 

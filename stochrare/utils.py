@@ -2,7 +2,7 @@
 Utilities
 ============
 
-.. currentmodule:: stochpy.utils
+.. currentmodule:: stochrare.utils
 
 This module contains various tools which are not really intended to be used by external code,
 but should be used by various other modules in the package.

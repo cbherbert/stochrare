@@ -2,7 +2,7 @@
 Numerical solvers for the Fokker-Planck equations
 =================================================
 
-.. currentmodule:: stochpy.fokkerplanck
+.. currentmodule:: stochrare.fokkerplanck
 
 This module contains numerical solvers for the Fokker-Planck equations associated to diffusion
 processes.
@@ -35,7 +35,7 @@ class FokkerPlanck1D:
     Notes
     -----
     This is just the legacy code which was migrated from the
-    :class:`stochpy.dynamics.DiffusionProcess1D` class.
+    :class:`stochrare.dynamics.DiffusionProcess1D` class.
     It should be rewritten with a better structure.
     In particular, it only works with a constant diffusion for now.
     """
@@ -123,7 +123,7 @@ class FokkerPlanck1D:
             Number of discretization points in the domain (i.e. spatial resolution). Default: 100.
         dt : float
             Timestep (default choice suitable for the heat equation with forward scheme)
-        bc: stochpy.edpy.BoundaryCondition object or tuple
+        bc: stochrare.edpy.BoundaryCondition object or tuple
             Boundary conditions (either a BoundaryCondition object or a tuple sent to _fpbc)
         method : str
             Numerical scheme: explicit ('euler', default), implicit, or crank-nicolson

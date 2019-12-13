@@ -8,4 +8,4 @@ tests:
 	python tests.py
 
 clean:
-	rm -r dist *.egg-info *~ stochpy/*~
+	rm -r dist *.egg-info *~ stochrare/*~
