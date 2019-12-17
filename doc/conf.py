@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.abspath('../'))
 
 # -- Project information -----------------------------------------------------
 
-project = 'StochPy'
+project = 'StochRare'
 copyright = '2019, Corentin Herbert'
 author = 'Corentin Herbert'
 
