@@ -1,5 +1,7 @@
 # stochrare
 
+[![Documentation Status](https://readthedocs.org/projects/stochrare/badge/?version=latest)](https://stochrare.readthedocs.io/en/latest/?badge=latest)
+
 This Python package aims at providing tools to study stochastic processes:
 - numerical integration of SDEs
 - numerical solver for the Fokker-Planck equations
