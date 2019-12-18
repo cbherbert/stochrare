@@ -4,7 +4,7 @@ Interactive presentation of the AMS algorithm for pedagogical purposes
 """
 import numpy as np
 import matplotlib.pyplot as plt
-import stochpy as sp
+import stochrare as sr
 
 class InteractiveAMS:
     # pylint: disable=too-few-public-methods
@@ -82,8 +82,8 @@ def main():
     ax.grid(True)
     ax.set_xlabel(r'$t$')
     ax.set_ylabel(r'$x$')
-    oup = sp.dynamics.diffusion1d.OrnsteinUhlenbeck1D(0, 1, 0.5)
-    _ = InteractiveAMS(sp.rare.ams.TAMS(oup, (lambda t, x: x), 5.), 3, ax)
+    oup = sr.dynamics.diffusion1d.OrnsteinUhlenbeck1D(0, 1, 0.5)
+    _ = InteractiveAMS(sr.rare.ams.TAMS(oup, (lambda t, x: x), 5.), 3, ax)
     plt.show()
 
 if __name__ == '__main__':

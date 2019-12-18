@@ -2,7 +2,7 @@
 Plotting routines
 =================
 
-.. currentmodule:: stochpy.io.plot
+.. currentmodule:: stochrare.io.plot
 
 This module contains several functions for making quick plots.
 

@@ -1,5 +1,5 @@
 """
-stochpy is a package to simulate simple stochastic processes
+stochrare is a package to simulate simple stochastic processes
 
 See README.md for more information.
 """

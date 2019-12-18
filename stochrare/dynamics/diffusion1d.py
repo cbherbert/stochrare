@@ -2,7 +2,7 @@
 Simulating 1D diffusion processes
 =================================
 
-.. currentmodule:: stochpy.dynamics.diffusion1d
+.. currentmodule:: stochrare.dynamics.diffusion1d
 
 This module defines the `DiffusionProcess1D` class, representing diffusion processes with
 arbitrary drift and diffusion coefficients in 1D.
@@ -373,7 +373,7 @@ class DiffusionProcess1D:
 
         Notes
         -----
-        This is just an interface to the function :meth:`stochpy.io.plot.trajectory_plot1d`.
+        This is just an interface to the function :meth:`stochrare.io.plot.trajectory_plot1d`.
         However, it may be overwritten in subclasses to systematically include elements to
         the plot which are specific to the stochastic process.
         """

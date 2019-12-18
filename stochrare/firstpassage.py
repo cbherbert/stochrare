@@ -2,7 +2,7 @@
 First-passage processes
 =======================
 
-.. currentmodule:: stochpy.firstpassage
+.. currentmodule:: stochrare.firstpassage
 
 This module defines a class corresponding to the random variable defined as the first-passage time
 in a given set for a given stochastic process.
@@ -26,7 +26,7 @@ class FirstPassageProcess:
     Parameters
     ----------
 
-    model : stochpy.dynamics.DiffusionProcess1D
+    model : stochrare.dynamics.DiffusionProcess1D
         The stochastic process to which the first-passage time is associated
 
     CAUTION: methods only tested with ConstantDiffusionProcess1D class, not DiffusionProcess1D!

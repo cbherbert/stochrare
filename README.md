@@ -1,4 +1,6 @@
-# stochpy
+# stochrare
+
+[![Documentation Status](https://readthedocs.org/projects/stochrare/badge/?version=latest)](https://stochrare.readthedocs.io/en/latest/?badge=latest)
 
 This Python package aims at providing tools to study stochastic processes:
 - numerical integration of SDEs
@@ -31,7 +33,7 @@ These notebooks will include references to the relevant litterature.
 ## Citation
 
 We should soon write a metapaper describing the project.
-In the meantime, if you use the package for your research, we would appreciate if you could give credit by citing one of the research papers where the development of stochpy started:
+In the meantime, if you use the package for your research, we would appreciate if you could give credit by citing one of the research papers where the development of stochrare started:
 
 	@article{Herbert2017,
 	Author = {Herbert, Corentin and Bouchet, Freddy},

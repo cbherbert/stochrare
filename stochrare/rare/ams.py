@@ -2,7 +2,7 @@
 Rare event algorithms of the *Adaptive Multilevel Splitting* family
 ===================================================================
 
-.. currentmodule:: stochpy.rare.ams
+.. currentmodule:: stochrare.rare.ams
 
 There are two kinds of variants of the AMS algorithms.
 On the one hand, there are "scientific" variants, corresponding to different formulations of the
@@ -25,10 +25,10 @@ class AMS:
 
     Parameters
     ----------
-    model : stochpy.dynamics.DiffusionProcess1D object (or a subclass of it)
+    model : stochrare.dynamics.DiffusionProcess1D object (or a subclass of it)
         The dynamical model; so far we are restricted to SDEs of the form
         :math:`dX_t = F(X_t, t) + \sqrt{2D}dW_t`.
-        We only use the :meth:`stochpy.dynamics.DiffusionProcess1D.update` method of the object.
+        We only use the :meth:`stochrare.dynamics.DiffusionProcess1D.update` method of the object.
     scorefun : function with two arguments
         The score function :math:`\xi(t, x)`.
     initcond : function with no arguments, optional
@@ -71,7 +71,7 @@ class AMS:
     """
     def __init__(self, model, scorefun, initcond=(lambda: (0., 0.))):
         r"""
-        - model: stochpy.dynamics.StochModel object (or a subclass of it)
+        - model: stochrare.dynamics.StochModel object (or a subclass of it)
                  The dynamical model; so far we are restricted to SDEs of the form
                      :math:`dX_t = F(X_t, t) + \sqrt{2D}dW_t`
                  We only use the update method of the dynamics object.
@@ -409,7 +409,7 @@ class TAMS(AMS):
 
     Parameters
     ----------
-    dynamics : stochpy.dynamics.StochModel object (or a subclass of it)
+    dynamics : stochrare.dynamics.StochModel object (or a subclass of it)
         The dynamical model; so far we are restricted to SDEs of the form
         :math:`dX_t = F(X_t, t) + \sqrt{2D}dW_t`
         We only use the trajectory method of the dynamics object.
@@ -430,7 +430,7 @@ class TAMS(AMS):
     """
     def __init__(self, model, scorefun, duration, **kwargs):
         r"""
-        - dynamics: stochpy.dynamics.StochModel object (or a subclass of it)
+        - dynamics: stochrare.dynamics.StochModel object (or a subclass of it)
                     The dynamical model; so far we are restricted to SDEs of the form
                         :math:`dX_t = F(X_t, t) + \sqrt{2D}dW_t`
                     We only use the trajectory method of the dynamics object.
