@@ -98,7 +98,7 @@ class EDPSolver:
         # time integration
         t = t0
         while (t+dt <= t0+T):
-        P = np.copy(P0)
+            P = np.copy(P0)
             P[1:-1] += solfun(P, solgrid, t)*dt # Advancing in the bulk
             bc.apply(P, solgrid.grid, t)        # Applying boundary conditions
             t += dt
