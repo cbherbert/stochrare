@@ -147,14 +147,14 @@ class FokkerPlanck1D:
         method = kwargs.pop('method', 'euler')
         adj = kwargs.pop('adjoint', False)
         # Prepare initial P(x):
-        P0 = kwargs.pop('P0', 'gauss')
-        if P0 == 'gauss':
+        P0_type = kwargs.pop('P0', 'gauss')
+        if P0_type == 'gauss':
             P0 = self.gaussian1d(kwargs.get('P0center', 0.0), kwargs.get('P0std', 1.0), fdgrid.grid)
-        if P0 == 'dirac':
+        if P0_type == 'dirac':
             P0 = np.zeros_like(fdgrid.grid)
             np.put(P0, len(fdgrid.grid[fdgrid.grid < kwargs.get('P0center', 0.0)]), 1.0)
             P0 /= integrate.trapz(P0, fdgrid.grid)
-        if P0 == 'uniform':
+        if P0_type == 'uniform':
             P0 = np.ones_like(fdgrid.grid)
             P0 /= integrate.trapz(P0, fdgrid.grid)
         # Numerical integration:
