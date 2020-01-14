@@ -2,7 +2,7 @@
 
 [![Documentation Status](https://readthedocs.org/projects/stochrare/badge/?version=latest)](https://stochrare.readthedocs.io/en/latest/?badge=latest)
 
-[![Build Status](https://travis-ci.org/tlestang/stochrare.svg?branch=master)](https://travis-ci.org/tlestang/stochrare)
+[![Build Status](https://travis-ci.org/cbherbert/stochrare.svg?branch=master)](https://travis-ci.org/cbherbert/stochrare)
 
 This Python package aims at providing tools to study stochastic processes:
 - numerical integration of SDEs
