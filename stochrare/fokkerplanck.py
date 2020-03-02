@@ -132,6 +132,13 @@ class FokkerPlanck1D:
         P0 : str
             Initial condition: 'gauss' (default), 'dirac' or 'uniform'.
 
+        Notes
+        -----
+        Currently the P0 keyword argument can either be a numpy array containing the initial
+        condition or a string used as a shortcut to create some standard initial conditions.
+        This ambiguity should be resolved in the near future, probably by removing the
+        possibility to pass a string.
+
         Returns
         -------
         t, X, P : float, ndarray, ndarray
@@ -150,13 +157,18 @@ class FokkerPlanck1D:
         P0_type = kwargs.pop('P0', 'gauss')
         if P0_type == 'gauss':
             P0 = self.gaussian1d(kwargs.get('P0center', 0.0), kwargs.get('P0std', 1.0), fdgrid.grid)
-        if P0_type == 'dirac':
+        elif P0_type == 'dirac':
             P0 = np.zeros_like(fdgrid.grid)
             np.put(P0, len(fdgrid.grid[fdgrid.grid < kwargs.get('P0center', 0.0)]), 1.0)
             P0 /= integrate.trapz(P0, fdgrid.grid)
-        if P0_type == 'uniform':
+        elif P0_type == 'uniform':
             P0 = np.ones_like(fdgrid.grid)
             P0 /= integrate.trapz(P0, fdgrid.grid)
+        else:
+            # This is a temporary hack to allow passing directly the initial condition.
+            # In the future, it should instead become the only possibility, and the standard initial
+            # conditions above should be created from outside this method.
+            P0 = P0_type
         # Numerical integration:
         if T > 0:
             if method in ('impl', 'implicit', 'bwd', 'backward',
