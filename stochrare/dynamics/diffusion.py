@@ -144,7 +144,8 @@ class DiffusionProcess:
         time = kwargs.get('T', 10.0)   # Total integration time
         if dt < 0:
             time = -time
-        tarray = np.linspace(t0, t0+time, num=np.floor(time/dt)+1)
+        num = int(time/dt)+1
+        tarray = np.linspace(t0, t0+time, num=num)
         for t in tarray[1:]:
             x += [self.update(x[-1], t, dt=dt)]
         x = np.array(x)
