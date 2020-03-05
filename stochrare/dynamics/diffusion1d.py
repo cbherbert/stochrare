@@ -532,7 +532,7 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
         """
         fig, ax, _ = plot.pdf_plot1d(legend=False, title=r'$D='+str(self.D0)+'$')
         kw_integ = ('dt', 'npts', 'bounds', 't0', 'P0', 'bc', 'method', 'adjoint')
-        fpe = fp.FokkerPlanck1D(self.drift, self.D0)
+        fpe = fp.FokkerPlanck1D.from_sde(self)
         fpgen = fpe.fpintegrate_generator(*args,
                                           **{k: v for k, v in kwargs.items() if k in kw_integ})
         for t, X, P in fpgen:

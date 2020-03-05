@@ -111,22 +111,21 @@ class FirstPassageProcess:
 
     def firstpassagetime_cdf(self, x0, A, *args, **kwargs):
         """
-        Computes the CDF of the first passage time, Prob_{x0,t0}[\tau_A<t]
-        by solving the Fokker-Planck equation
+        Computes the CDF of the first passage time, :math:`Prob_{x0,t0}[\tau_A<t]`,
+        or its derivatives, by solving the Fokker-Planck equation.
         """
         t0 = kwargs.pop('t0', 0.0)
         if 'P0' in kwargs:
             del kwargs['P0']
-        if 'P0center' in kwargs:
-            del kwargs['P0center']
         if 'bc' not in kwargs:
             kwargs['bc'] = ('reflecting', 'absorbing')
         bnds = (kwargs.pop('bounds', (-10.0, 0.0))[0], A)
         time = np.sort([t0]+list(args))
         time = time[time >= t0]
         G = [1.0 if x0 < A else 0.0]
-        fpe = fp.FokkerPlanck1D(self.model.F, self.model.D0)
-        t, X, P = fpe.fpintegrate(t0, 0.0, P0='dirac', P0center=x0, bounds=bnds, **kwargs)
+        fpe = fp.FokkerPlanck1D.from_sde(self.model)
+        P0 = fpe.dirac1d(x0, np.linspace(bnds[0], bnds[1], num=kwargs.get('npts', 100)))
+        t, X, P = fpe.fpintegrate(t0, 0.0, P0=P0, bounds=bnds, **kwargs)
         for t in time[1:]:
             t, X, P = fpe.fpintegrate(t0, t-t0, P0=P, bounds=bnds, **kwargs)
             G += [integrate.trapz(P[X < A], X[X < A])]
@@ -135,6 +134,35 @@ class FirstPassageProcess:
         output = {'cdf': (time, 1.0-G), 'G': (time, G),
                   'pdf': (time[1:-1], -edpy.CenteredFD(time).grad(G)),
                   'lambda': (time[1:-1], -edpy.CenteredFD(time).grad(np.log(G)))}
+        return output.get(kwargs.get('out', 'G'))
+
+    def firstpassagetime_cdf_adjoint(self, x0, A, *args, **kwargs):
+        """
+        Computes the CDF of the first passage time, :math:`Prob_{x0,t0}[\tau_A<t]`,
+        or its derivatives, by solving the adjoint Fokker-Planck equation.
+        """
+        t0 = kwargs.pop('t0', 0.0)
+        if 'P0' in kwargs:
+            del kwargs['P0']
+        if 'bc' not in kwargs:
+            kwargs['bc'] = ('reflecting', 'absorbing')
+        time = np.sort([t0]+list(args))
+        time = time[time >= t0]
+        bnds = (kwargs.pop('bounds', (-10.0, 0.0))[0], A)
+        fpe = fp.FokkerPlanck1DBackward(self.model.drift,
+                                        lambda x, t: 0.5*self.model.diffusion(x, t)**2)
+        Gloc = [1.0 if x0 < A else 0.0]
+        G0 = np.ones(kwargs.get('npts', 100))
+        G0[np.linspace(bnds[0], bnds[1], kwargs.get('npts', 100)) >= A] = 0.0
+        t, X, G = fpe.fpintegrate(t0, 0.0, P0=G0, bounds=bnds, **kwargs)
+        for t in time[1:]:
+            t, X, G = fpe.fpintegrate(t0, t-t0, P0=G, bounds=bnds, **kwargs)
+            Gloc += [G[X <= x0][-1]]
+            t0 = t
+        Gloc = np.array(Gloc)
+        output = {'cdf': (time, 1.0-Gloc), 'G': (time, Gloc),
+                  'pdf': (time[1:-1], -edpy.CenteredFD(time).grad(Gloc)),
+                  'lambda': (time[1:-1], -edpy.CenteredFD(time).grad(np.log(Gloc)))}
         return output.get(kwargs.get('out', 'G'))
 
     def firstpassagetime_moments(self, x0, A, *args, **kwargs):
@@ -152,6 +180,70 @@ class FirstPassageProcess:
             Mn += [t0**n + n*integrate.trapz(cdf*times**(n-1), times)]
         return Mn
 
+    def firstpassagetime_avg_theory(self, x0, *args, **kwargs):
+        r"""
+        Compute the mean first-passage time using the theoretical formula:
+
+        :math:`\mathbb{E}[\tau_M] = \frac{1}{D} \int_{x_0}^{M} dx e^{V(x)/D} \int_{-\infty}^x e^{-V(y)/D}dy.`
+
+        This formula is valid for a homogeneous process, conditioned on the initial position :math:`x_0`.
+
+        Parameters
+        ----------
+        x0 : float
+            Initial position
+        """
+        t0 = kwargs.pop('t0', 0.0)
+        inf = kwargs.pop('inf', -10.0)
+        # args have to be sorted in increasing order:
+        args = np.sort(args)
+        # remove the values of args which are <= x0:
+        badargs, args = (args[args <= x0], args[args > x0])
+
+        def exppot_int(a, b, sign=-1, fun=lambda z: 1):
+            z = np.linspace(a, b)
+            return integrate.trapz(np.exp(sign*self.model.potential(z, t0)/self.model.D0)*fun(z), z)
+        # compute the inner integral and interpolate:
+        y = np.linspace(x0, args[-1])
+        arr = np.array([exppot_int(*u) for u in [(inf, y[0])]+list(zip(y[:-1], y[1:]))])
+        ifun = interp1d(y, arr.cumsum())
+        # now compute the outer integral by chunks
+        oint = np.array([exppot_int(*bds, sign=1, fun=ifun) for bds in [(x0, args[0])]+list(zip(args[:-1], args[1:]))]).cumsum()/self.model.D0
+        return np.concatenate((badargs, args)), np.concatenate((np.zeros_like(badargs), oint))
+
+    def firstpassagetime_avg_theory2(self, x0, *args, **kwargs):
+        r"""
+        Compute the mean first-passage time using the theoretical formula:
+
+        :math:`\mathbb{E}[\tau_M] = \frac{1}{D} \int_{x_0}^{M} dx e^{V(x)/D} \int_{-\infty}^x e^{-V(y)/D}dy.`
+
+        This formula is valid for a homogeneous process, conditioned on the initial position :math:`x_0`.
+
+        Parameters
+        ----------
+        x0 : float
+            Initial position
+        """
+        t0 = kwargs.pop('t0', 0.0)
+        inf = kwargs.pop('inf', -10.0)
+        # args have to be sorted in increasing order:
+        args = np.sort(args)
+        # remove the values of args which are <= x0:
+        badargs, args = (args[args <= x0], args[args > x0])
+
+        def exppot(y, sign=-1, fun=lambda z: 1):
+            return np.exp(sign*self.model.potential(y, t0)/self.model.D0)*fun(y)
+        # compute the inner integral and interpolate:
+        z = np.linspace(inf, args[-1])
+        iarr = integrate.cumtrapz(exppot(z), z, initial=0)
+        ifun = interp1d(z, iarr)
+        # now compute the outer integral by chunks
+        y = np.linspace(x0, args[-1])
+        oarr = integrate.cumtrapz(exppot(y, sign=1, fun=ifun), y, initial=0)/self.model.D0
+        ofun = interp1d(y, oarr)
+        return np.concatenate((badargs, args)), np.concatenate((np.zeros_like(badargs), ofun(args)))
+
+
     def firstpassagetime_avg(self, x0, *args, **kwargs):
         """
         Compute the mean first passage time by one of the following methods:
@@ -167,33 +259,14 @@ class FirstPassageProcess:
         tmax = kwargs.pop('tmax', 100.0)
         nt = kwargs.pop('nt', 10)
         t0 = kwargs.pop('t0', 0.0)
-        inf = kwargs.pop('inf', -10.0)
         # args have to be sorted in increasing order:
         args = np.sort(args)
         # remove the values of args which are <= x0:
         badargs, args = (args[args <= x0], args[args > x0])
         if src == 'theory':
-            def exppot_int(a, b, sign=-1, fun=lambda z: 1):
-                z = np.linspace(a, b)
-                return integrate.trapz(np.exp(sign*self.model.potential(z, t0)/self.model.D0)*fun(z), z)
-            # compute the inner integral and interpolate:
-            y = np.linspace(x0, args[-1])
-            arr = np.array([exppot_int(*u) for u in [(inf, y[0])]+zip(y[:-1], y[1:])])
-            ifun = interp1d(y, arr.cumsum())
-            # now compute the outer integral by chunks
-            return np.concatenate((badargs, args)), np.array(len(badargs)*[0.]+[exppot_int(*bds, sign=1, fun=ifun) for bds in [(x0, args[0])]+zip(args[:-1], args[1:])]).cumsum()/self.model.D0
+            return self.firstpassagetime_avg_theory(x0, *args, **kwargs)
         elif src == 'theory2':
-            def exppot(y, sign=-1, fun=lambda z: 1):
-                return np.exp(sign*self.model.potential(y, t0)/self.model.D0)*fun(y)
-            # compute the inner integral and interpolate:
-            z = np.linspace(inf, args[-1])
-            iarr = integrate.cumtrapz(exppot(z), z, initial=0)
-            ifun = interp1d(z, iarr)
-            # now compute the outer integral by chunks
-            y = np.linspace(x0, args[-1])
-            oarr = integrate.cumtrapz(exppot(y, sign=1, fun=ifun), y, initial=0)/self.model.D0
-            ofun = interp1d(y, oarr)
-            return np.concatenate((badargs, args)), np.concatenate((len(badargs)*[0.], ofun(args)))
+            return self.firstpassagetime_avg_theory2(x0, *args, **kwargs)
         elif src == 'adjoint':
             # here we need to solve the adjoint FP equation for each threshold value,
             # so this is much more expensive than the theoretical formula of course.
