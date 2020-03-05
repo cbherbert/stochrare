@@ -244,19 +244,19 @@ class FokkerPlanck1D(FokkerPlanck1DAbstract):
 
     def _fpeq(self, P, X, t):
         """ Right hand side of the Fokker-Planck equation """
-        driftvec = np.array([self.drift(x, t) for x in X.grid])
-        diffvec = np.array([self.diffusion(x, t) for x in X.grid])
-        return -X.grad(driftvec*P) + X.laplacian(diffvec*P)
+        return -X.grad(self.drift(X.grid, t)*P) + X.laplacian(self.diffusion(X.grid, t)*P)
 
     def _fpmat(self, X, t):
         """
         Sparse matrix representation of the linear operator
         corresponding to the RHS of the FP equation
         """
-        driftvec = np.array([self.drift(x, t) for x in X.grid])
-        diffvec = np.array([self.diffusion(x, t) for x in X.grid])
-        Ldrift = -X.grad_mat()*sps.dia_matrix((driftvec, np.array([0])), shape=(X.N, X.N))
-        Ldiff = X.lapl_mat()*sps.dia_matrix((diffvec, np.array([0])), shape=(X.N, X.N))
+        driftvec = np.array(self.drift(X.grid, t), ndmin=1)
+        diffvec = np.array(self.diffusion(X.grid, t), ndmin=1)
+        driftvec = driftvec if len(driftvec) == X.N else np.full(X.N, driftvec[0])
+        diffvec = diffvec if len(diffvec) == X.N else np.full(X.N, diffvec[0])
+        Ldrift = -X.grad_mat()*sps.spdiags(driftvec, 0, X.N, X.N)
+        Ldiff = X.lapl_mat()*sps.spdiags(diffvec, 0, X.N, X.N)
         return Ldrift + Ldiff
 
     def _fpbc(self, fdgrid, bc=('absorbing', 'absorbing')):
@@ -300,16 +300,20 @@ class FokkerPlanck1DBackward(FokkerPlanck1DAbstract):
         The adjoint of the Fokker-Planck operator, useful for instance
         in first passage time problems for homogeneous processes.
         """
-        driftvec = np.array([self.drift(x, t) for x in X.grid])
-        diffvec = np.array([self.diffusion(x, t) for x in X.grid])
+        driftvec = np.array(self.drift(X.grid, t), ndmin=1)
+        diffvec = np.array(self.diffusion(X.grid, t), ndmin=1)
+        driftvec = driftvec if len(driftvec) == X.N else np.full(X.N, driftvec[0])
+        diffvec = diffvec if len(diffvec) == X.N else np.full(X.N, diffvec[0])
         return driftvec[1:-1]*X.grad(P)+diffvec[1:-1]*X.laplacian(P)
 
     def _fpmat(self, X, t):
         """ Sparse matrix representation of the adjoint of the FP operator """
-        driftvec = np.array([self.drift(x, t) for x in X.grid])
-        diffvec = np.array([self.diffusion(x, t) for x in X.grid])
-        Ladv = sps.dia_matrix((driftvec[1:-1], np.array([0])), shape=(X.N-2, X.N-2))*X.grad_mat()
-        Ldiff = sps.dia_matrix((diffvec[1:-1], np.array([0])), shape=(X.N-2, X.N-2))*X.lapl_mat()
+        driftvec = np.array(self.drift(X.grid, t), ndmin=1)
+        diffvec = np.array(self.diffusion(X.grid, t), ndmin=1)
+        driftvec = driftvec if len(driftvec) == X.N else np.full(X.N, driftvec[0])
+        diffvec = diffvec if len(diffvec) == X.N else np.full(X.N, diffvec[0])
+        Ladv = sps.spdiags(driftvec[1:-1], 0, X.N-2, X.N-2)*X.grad_mat()
+        Ldiff = sps.spdiags(diffvec[1:-1], 0, X.N-2, X.N-2)*X.lapl_mat()
         return Ladv + Ldiff
 
     def _fpbc(self, fdgrid, bc=('absorbing', 'absorbing')):
