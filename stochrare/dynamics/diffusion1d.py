@@ -33,11 +33,11 @@ import numpy as np
 import scipy.integrate as integrate
 from scipy.interpolate import interp1d
 from scipy.misc import derivative
+from numba import jit
 from .. import edpy
 from .. import fokkerplanck as fp
 from ..utils import pseudorand
 from ..io import plot
-
 
 class DiffusionProcess1D:
     r"""
@@ -59,8 +59,8 @@ class DiffusionProcess1D:
         """
         F and sigma are functions of two variables (x,t)
         """
-        self.drift = vecfield
-        self.diffusion = sigma
+        self.drift = jit(vecfield, nopython=True)
+        self.diffusion = jit(sigma, nopython=True)
         self.__deterministic__ = kwargs.get('deterministic', False)
 
     def potential(self, X, t):
@@ -184,12 +184,22 @@ class DiffusionProcess1D:
             ratio = int(np.rint(dt/deltat))
             dw = np.random.normal(0, np.sqrt(deltat), size=(num-1)*ratio)
         dw = dw.reshape((num-1, ratio)).sum(axis=1)
-        for index in range(1, num):
-            x[index] = self.update(x[index-1], t[index-1], dt=dt, dw=dw[index-1])
+        x = self._euler_maruyama(x, t, dw, dt, self.drift, self.diffusion)
         if kwargs.pop('finite', False):
             t = t[np.isfinite(x)]
             x = x[np.isfinite(x)]
         return t[t <= t0+time], x[t <= t0+time]
+
+    @staticmethod
+    @jit(nopython=True)
+    def _euler_maruyama(x, t, w, dt, drift, diffusion):
+        index = 1
+        for wn in w:
+            xn = x[index-1]
+            tn = t[index-1]
+            x[index] = xn + drift(xn, tn)*dt + diffusion(xn, tn)*wn
+            index = index + 1
+        return x
 
     @pseudorand
     def _trajectory_fast(self, x0, t0, **kwargs):
