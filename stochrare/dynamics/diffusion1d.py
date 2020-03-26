@@ -184,11 +184,25 @@ class DiffusionProcess1D:
             ratio = int(np.rint(dt/deltat))
             dw = np.random.normal(0, np.sqrt(deltat), size=(num-1)*ratio)
         dw = dw.reshape((num-1, ratio)).sum(axis=1)
-        x = self._euler_maruyama(x, t, dw, dt, self.drift, self.diffusion)
+        x = self.integrate_sde(x, t, dw, dt=dt, **kwargs)
         if kwargs.pop('finite', False):
             t = t[np.isfinite(x)]
             x = x[np.isfinite(x)]
         return t[t <= t0+time], x[t <= t0+time]
+
+    def integrate_sde(self, x, t, w, **kwargs):
+        """
+        Dispatch SDE integration for different numerical schemes:
+        - Euler-Maruyama
+        - Milstein (not implemented)
+        """
+        method = kwargs.get('method', 'euler')
+        dt = kwargs.get('dt', self.default_dt)
+        if method in ('euler', 'euler-maruyama', 'em'):
+            x = self._euler_maruyama(x, t, w, dt, self.drift, self.diffusion)
+        else:
+            raise NotImplementedError('SDE integration error: Numerical scheme not implemented')
+        return x
 
     @staticmethod
     @jit(nopython=True)
@@ -469,6 +483,31 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
         dw = kwargs.get('dw', np.random.normal(0.0, np.sqrt(dt)))
         return xn + self.drift(xn, tn)*dt + np.sqrt(2.0*self.D0)*dw
 
+    def integrate_sde(self, x, t, w, **kwargs):
+        """
+        Dispatch SDE integration for different numerical schemes:
+        - Euler-Maruyama
+        - Milstein (not implemented)
+        """
+        method = kwargs.get('method', 'euler')
+        dt = kwargs.get('dt', self.default_dt)
+        if method in ('euler', 'euler-maruyama', 'em'):
+            x = self._euler_maruyama(x, t, w, dt, self.drift, self.D0)
+        else:
+            raise NotImplementedError('SDE integration error: Numerical scheme not implemented')
+        return x
+
+    @staticmethod
+    @jit(nopython=True)
+    def _euler_maruyama(x, t, w, dt, drift, D0):
+        index = 1
+        for wn in w:
+            xn = x[index-1]
+            tn = t[index-1]
+            x[index] = xn + drift(xn, tn)*dt + np.sqrt(2.0*D0)*wn
+            index = index + 1
+        return x
+
     def traj_cond_gen(self, x0, t0, tau, M, **kwargs):
         """
         Generate trajectories conditioned on the first-passage time tau at value M.
@@ -709,6 +748,35 @@ class OrnsteinUhlenbeck1D(ConstantDiffusionProcess1D):
         else:
             xx = ConstantDiffusionProcess1D.update(self, xn, tn, **kwargs)
         return xx
+
+    def integrate_sde(self, x, t, w, **kwargs):
+        """
+        Dispatch SDE integration for different numerical schemes:
+        - Euler-Maruyama
+        - Milstein (not implemented)
+        - Gillespie
+        """
+        method = kwargs.get('method', 'euler')
+        dt = kwargs.get('dt', self.default_dt)
+        if method == 'gillespie':
+            x = self._gillespie(x, w, dt, self.theta, self.D0)
+        elif method in ('euler', 'euler-maruyama', 'em'):
+            x = self._euler_maruyama(x, t, w, dt, self.drift, self.D0)
+        else:
+            raise NotImplementedError('SDE integration error: Numerical scheme not implemented')
+        return x
+
+    @staticmethod
+    @jit(nopython=True)
+    def _gillespie(x, w, dt, theta, D0):
+        index = 1
+        D1 = np.exp(-theta*dt)
+        D2 = np.sqrt(D0/theta*(1-D1**2))
+        for wn in w:
+            xn = x[index-1]
+            x[index] = D1*xn + D2*wn
+            index = index + 1
+        return x
 
     def _instantoneq(self, t, Y):
         """
