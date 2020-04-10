@@ -66,6 +66,23 @@ class TestFokkerPlanck(unittest.TestCase):
                                   bc=('absorbing', 'absorbing'), method='cn')
         np.testing.assert_allclose(P, wiener._fpthsol(X, t), atol=1e-3)
 
+class TestShortTimePropagator(unittest.TestCase):
+    def test_transition_matrix(self):
+        wiener = diffusion1d.Wiener1D()
+        fpe = fp.ShortTimePropagator(wiener.drift, lambda x, t: 0.5*wiener.diffusion(x, t)**2, 0.1)
+        grid = np.linspace(-20, 20, 400)
+        pst1 = fpe.transition_matrix(grid, 0)
+        pst2 = np.array([[fpe.transition_probability(x, x0, 0) for x0 in grid] for x in grid])
+        np.testing.assert_allclose(pst1, pst2)
+
+    def test_fpsolver_shorttime_heat(self):
+        wiener = diffusion1d.Wiener1D()
+        fpe = fp.ShortTimePropagator(wiener.drift, lambda x, t: 0.5*wiener.diffusion(x, t)**2, 0.1)
+        P0 = fp.FokkerPlanck1DAbstract.dirac1d(0, np.linspace(-20, 20, 400))
+        t, X, P = fpe.fpintegrate(0, 10, npts=400, bounds=(-20., 20.), P0=P0)
+        np.testing.assert_allclose(P, wiener._fpthsol(X, t), atol=1e-3)
+
+
 class TestRareEvents(unittest.TestCase):
     def test_blockmaximum(self):
         data = np.random.random(101)
