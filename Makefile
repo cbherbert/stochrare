@@ -5,7 +5,7 @@ install:
 	pip install --user .
 
 tests:
-	python tests.py
+	python -m unittest discover
 
 clean:
 	rm -r dist *.egg-info *~ stochrare/*~
