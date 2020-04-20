@@ -8,9 +8,10 @@ setuptools.setup(
     version="0.0.1",
     author="Corentin Herbert",
     author_email="corentin.herbert@ens-lyon.fr",
-    # add url
     description="A package to simulate simple stochastic processes",
     long_description=readme,
+    long_description_content_type="text/markdown",
+    url="https://github.com/cbherbert/stochrare",
     packages=["stochrare", "stochrare.dynamics", "stochrare.rare", "stochrare.io"],
     install_requires=["matplotlib", "numpy", "scipy"],
     classifiers=[
@@ -21,5 +22,6 @@ setuptools.setup(
         "Intended Audience :: Science/Research",
         "Intended Audience :: Education",
         "Topic :: Scientific/Engineering :: Physics",
+        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     ],
 )
