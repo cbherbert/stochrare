@@ -3,4 +3,4 @@ dist/
 *.egg-info/
 doc/_build
 doc/generated
-.coverage/*
+.coverage
