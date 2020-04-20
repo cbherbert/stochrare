@@ -163,13 +163,6 @@ class FokkerPlanck1DAbstract:
         P0 : ndarray
             Initial condition (default is a standard normal distribution).
 
-        Notes
-        -----
-        Currently the P0 keyword argument can either be a numpy array containing the initial
-        condition or a string used as a shortcut to create some standard initial conditions.
-        This ambiguity should be resolved in the near future, probably by removing the
-        possibility to pass a string.
-
         Returns
         -------
         t, X, P : float, ndarray, ndarray
