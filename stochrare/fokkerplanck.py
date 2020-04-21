@@ -163,13 +163,6 @@ class FokkerPlanck1DAbstract:
         P0 : ndarray
             Initial condition (default is a standard normal distribution).
 
-        Notes
-        -----
-        Currently the P0 keyword argument can either be a numpy array containing the initial
-        condition or a string used as a shortcut to create some standard initial conditions.
-        This ambiguity should be resolved in the near future, probably by removing the
-        possibility to pass a string.
-
         Returns
         -------
         t, X, P : float, ndarray, ndarray
@@ -334,3 +327,152 @@ class FokkerPlanck1DBackward(FokkerPlanck1DAbstract):
         if bc not in dic:
             raise NotImplementedError("Unknown boundary conditions for the Fokker-Planck equations")
         return edpy.DirichletBC([0, 0]) if self.diffusion == 0 else dic[bc]
+
+class ShortTimePropagator:
+    """
+    Solver for the Fokker-Planck equation based on the short-time expansion of the generator.
+
+    Parameters
+    ----------
+    drift : function with two variables
+        The drift coefficient :math:`a(x, t)`.
+    diffusion : function with two variables
+        The diffusion coefficient :math:`D(x, t)`.
+    tau: float
+        The time step for the expansion.
+    """
+    def __init__(self, drift, diffusion, tau):
+        self.drift = drift
+        self.diffusion = diffusion
+        self.tau = tau
+
+    def transition_probability(self, x, x0, t0):
+        r"""
+        Return the approximate transition probability :math:`p(x, t0+tau | x0, t0)`,
+        using the short-time expansion of the generator.
+
+        :math:`p(x, t0+tau | x0, t0) = e^{-\frac{(x-x_0-a(x_0, t_0)\tau)^2}{4D(x_0, t_0)\tau}}/\sqrt{4\pi D(x_0, t_0)\tau}`
+
+        Parameters
+        ----------
+        x: float
+            The final position
+        x0: float
+            The initial position
+        t0: float
+            The initial time
+
+        Returns
+        -------
+        p: float
+           The transition probability :math:`p(x, x0+tau | x0, t0)`.
+        """
+        fDtau = 4*self.diffusion(x0, t0)*self.tau
+        return np.exp(-(x-x0-self.drift(x0, t0)*self.tau)**2/fDtau)/np.sqrt(np.pi*fDtau)
+
+    def transition_matrix(self, grid, t0):
+        r"""
+        Return the approximate transition probability matrix :math:`p(x, t0+tau | x0, t0)`,
+        for :math:`x` and :math:`x0` in the grid vector, using the short-time expansion of the
+        generator.
+
+        :math:`p(x, t0+tau | x0, t0) = e^{-\frac{(x-x_0-a(x_0, t_0)\tau)^2}{4D(x_0, t_0)\tau}}/\sqrt{4\pi D(x_0, t_0)\tau}`
+
+        Parameters
+        ----------
+        grid: ndarray (1D)
+            The vector containing the sample points.
+        t0: float
+            The time at which the transition matrix should be computed
+
+        Returns
+        -------
+        P: ndarray (2D)
+            The transition probability matrix.
+        """
+        fDtau = 4*self.diffusion(grid, t0)*self.tau
+        atau = self.drift(grid, t0)*self.tau
+        gridmat = np.tile(grid, (len(grid), 1)).T
+        return np.exp(-(gridmat - grid - atau)**2/fDtau)/np.sqrt(np.pi*fDtau)
+
+    def fpintegrate_naive(self, t0, T, **kwargs):
+        """
+        Numerical integration of the associated Fokker-Planck equation.
+
+        Parameters
+        ----------
+        t0 : float
+            Initial time.
+        T : float
+            Integration time.
+
+        Keyword Arguments
+        -----------------
+        bounds : float 2-tuple
+            Domain where we should solve the equation (default (-10.0, 10.0))
+        npts : ints
+            Number of discretization points in the domain (i.e. spatial resolution). Default: 100.
+        P0 : ndarray
+            Initial condition (default is a standard normal distribution).
+
+        Returns
+        -------
+        t, X, P : float, ndarray, ndarray
+            Final time, sample points and solution of the Fokker-Planck
+            equation at the sample points.
+
+        Notes
+        -----
+        This version updates the pdf by integrating the transition probability for each point,
+        using list comprehension. In numpy, this is much slower than the version using the
+        transition matrix. It is kept only for reference.
+        """
+        B, A = kwargs.pop('bounds', (-10.0, 10.0))
+        Np = kwargs.pop('npts', 100)
+        fdgrid = edpy.RegularCenteredFD(B, A, Np)
+        P0 = kwargs.pop('P0', FokkerPlanck1DAbstract.gaussian1d(0.0, 1.0, fdgrid.grid))
+        P = np.copy(P0)
+        t = t0
+        while t < t0+T:
+            P = np.array([np.trapz(self.transition_probability(x, fdgrid.grid, t)*P, x=fdgrid.grid)
+                          for x in fdgrid.grid])
+            t += self.tau
+        return t, fdgrid.grid, P
+
+    def fpintegrate(self, t0, T, **kwargs):
+        """
+        Numerical integration of the associated Fokker-Planck equation.
+
+        Parameters
+        ----------
+        t0 : float
+            Initial time.
+        T : float
+            Integration time.
+
+        Keyword Arguments
+        -----------------
+        bounds : float 2-tuple
+            Domain where we should solve the equation (default (-10.0, 10.0))
+        npts : ints
+            Number of discretization points in the domain (i.e. spatial resolution). Default: 100.
+        P0 : ndarray
+            Initial condition (default is a standard normal distribution).
+
+        Returns
+        -------
+        t, X, P : float, ndarray, ndarray
+            Final time, sample points and solution of the Fokker-Planck
+            equation at the sample points.
+        """
+        B, A = kwargs.pop('bounds', (-10.0, 10.0))
+        Np = kwargs.pop('npts', 100)
+        fdgrid = edpy.RegularCenteredFD(B, A, Np)
+        P0 = kwargs.pop('P0', FokkerPlanck1DAbstract.gaussian1d(0.0, 1.0, fdgrid.grid))
+        P = np.copy(P0)
+        t = t0
+        while t < t0+T:
+            #P = np.matmul(self.transition_matrix(fdgrid.grid, t), P)*fdgrid.dx
+            P = np.trapz(self.transition_matrix(fdgrid.grid, t)*P, x=fdgrid.grid)
+            t += self.tau
+        return t, fdgrid.grid, P

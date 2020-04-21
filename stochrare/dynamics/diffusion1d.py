@@ -698,9 +698,15 @@ class OrnsteinUhlenbeck1D(ConstantDiffusionProcess1D):
            Phys. Rev. 36, 823–841 (1930).
     """
     def __init__(self, mu, theta, D, **kwargs):
+        self.mu = mu
         self.theta = theta
         self.d_f = (lambda x, t: -theta)
         super(OrnsteinUhlenbeck1D, self).__init__(lambda x, t: theta*(mu-x), D, **kwargs)
+
+    def __str__(self):
+        label = "1D Ornstein-Uhlenbeck process"
+        eq = "dx_t = theta(mu-x_t)dt + sqrt(2D) dW_t"
+        return f"{label}: {eq}, with theta={self.theta}, mu={self.mu} and D={self.D0}."
 
     def update(self, xn, tn, **kwargs):
         """
