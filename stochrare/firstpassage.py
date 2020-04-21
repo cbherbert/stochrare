@@ -15,6 +15,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.integrate as integrate
 from scipy.interpolate import interp1d
+from numba import jit
 from . import edpy
 from . import fokkerplanck as fp
 
@@ -40,12 +41,18 @@ class FirstPassageProcess:
         Computes the first passage time, defined by $\tau_A = inf{t>t0 | x(t)>A}$,
         for one realization
         """
+        dt = kwargs.get('dt', self.model.default_dt)
+        return self._fpt_euler(x0, t0, A, dt, self.model.drift, self.model.diffusion)
+
+    @staticmethod
+    @jit(nopython=True)
+    def _fpt_euler(x0, t0, A, dt, drift, diffusion):
         x = x0
         t = t0
-        dt = kwargs.get('dt', self.model.default_dt)
         while x <= A:
-            x = self.model.update(x, t, dt=dt)
-            t += dt
+            w = np.random.normal(0, np.sqrt(dt))
+            x = x + drift(x, t)*dt + diffusion(x, t)*w
+            t = t + dt
         return t
 
     def escapetime_sample(self, x0, t0, A, **kwargs):
