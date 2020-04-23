@@ -83,7 +83,7 @@ class DiffusionProcess1D:
         at the input points.
         Caveat: This works only for 1D dynamics.
         """
-        fun = interp1d(X, -self.drift(X, t))
+        fun = interp1d(X, -1*self.drift(X, t))
         return np.array([integrate.quad(fun, 0.0, x)[0] for x in X])
 
     def update(self, xn, tn, **kwargs):
