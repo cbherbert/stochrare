@@ -90,8 +90,8 @@ class InstantonSolver:
         self.instanton_eq = model._instantoneq
         self.instanton_jac = model._instantoneq_jac
 
-    @classmethod
-    def filt_fun(cls, t, x, p, threshold=100):
+    @staticmethod
+    def filt_fun(t, x, p, threshold=100):
         """
         Filter instanton trajectories to remove blowup.
         """
@@ -99,7 +99,7 @@ class InstantonSolver:
         if len(filt) > 0:
             maxind = filt[0]
         else:
-            maxind = -1
+            maxind = None
         return t[:maxind], x[:maxind], p[:maxind]
 
 

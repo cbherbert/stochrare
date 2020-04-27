@@ -12,6 +12,20 @@ class TestInstantonOU1D(unittest.TestCase):
         self.theta = model.theta
         self.solver = InstantonSolver(model)
 
+    def test_filtfun(self):
+        t0 = np.arange(11)
+        x0 = np.arange(10)
+        p0 = np.arange(11)
+        t, x, p = self.solver.filt_fun(t0[:-1], x0, p0[:-1], threshold=10)
+        np.testing.assert_allclose(t, t0[:-1])
+        np.testing.assert_allclose(x, x0)
+        np.testing.assert_allclose(p, p0[:-1])
+        x0 = np.append(x0, np.inf)
+        t, x, p = self.solver.filt_fun(t0, x0, p0, threshold=10)
+        np.testing.assert_allclose(t, t0[:-1])
+        np.testing.assert_allclose(x, x0[:-1])
+        np.testing.assert_allclose(p, p0[:-1])
+
     def test_instantonivp(self):
         times = np.linspace(0, 10)
         for x0, p0 in ((0, 1), (1, 0)):
