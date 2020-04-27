@@ -3,6 +3,7 @@ Unit tests for the instanton module.
 """
 import unittest
 import numpy as np
+import warnings
 from stochrare.dynamics.diffusion1d import OrnsteinUhlenbeck1D
 from stochrare.rare.instanton import InstantonSolver
 
@@ -35,6 +36,17 @@ class TestInstantonOU1D(unittest.TestCase):
             ptrue = p0*np.exp(self.theta*t)
             np.testing.assert_allclose(x, xtrue, rtol=1e-6)
             np.testing.assert_allclose(p, ptrue, rtol=1e-6)
+
+        for x0, p0 in ((0, 1), (1, 0)):
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                t, x, p = self.solver.instanton_ivp(x0, p0, *times,
+                                                    solver='odeclass', integrator='dopri5')
+            xtrue = 2*p0/self.theta*np.sinh(self.theta*t)+x0*np.exp(-self.theta*t)
+            ptrue = p0*np.exp(self.theta*t)
+            np.testing.assert_allclose(x, xtrue, rtol=1e-6)
+            np.testing.assert_allclose(p, ptrue, rtol=1e-6)
+
 
     def test_instantonbvp(self):
         times = np.linspace(0, 10)
