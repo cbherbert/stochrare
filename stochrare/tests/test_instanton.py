@@ -5,6 +5,7 @@ import unittest
 import numpy as np
 import warnings
 from stochrare.dynamics.diffusion1d import OrnsteinUhlenbeck1D
+from stochrare.dynamics.diffusion import OrnsteinUhlenbeck
 from stochrare.rare.instanton import InstantonSolver
 
 class TestInstantonOU1D(unittest.TestCase):
@@ -58,6 +59,12 @@ class TestInstantonOU1D(unittest.TestCase):
             np.testing.assert_allclose(t, times)
             np.testing.assert_allclose(x, xtrue, rtol=1e-6, atol=1e-9)
             np.testing.assert_allclose(p, ptrue, rtol=1e-6, atol=1e-9)
+
+    @unittest.skip("Instanton equations in arbitrary dimensions not yet merged")
+    def test_exception1d(self):
+        solver = InstantonSolver(OrnsteinUhlenbeck(0, 1, 0.1, 2))
+        times = np.linspace(0, 10)
+        self.assertRaises(NotImplementedError, solver.instanton_bvp(0, 1, *times))
 
 if __name__ == "__main__":
     unittest.main()
