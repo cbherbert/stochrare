@@ -30,6 +30,7 @@ These classes form a hierarchy deriving from the base class, `DiffusionProcess`.
 
 """
 import numpy as np
+import scipy.sparse
 from ..utils import pseudorand
 
 class DiffusionProcess:
@@ -230,6 +231,40 @@ class DiffusionProcess:
             time, obs = zip(*ensemble)
             yield np.average(time, axis=0), np.average(obs, axis=0)
 
+    def _instantoneq(self, t, canonical_coords):
+        """
+        Equations of motion for instanton dynamics.
+        These are just the Hamilton equations corresponding to the action.
+
+        canonical_coords should be a 2n-dimensional numpy.ndarray
+        containing canonical coordinates and momenta.
+
+        Return a numpy.ndarray of length 2n containing the derivatives xdot and pdot.
+        """
+        n = len(canonical_coords)/2
+        x = canonical_coords[:n]
+        p = canonical_coords[n:]
+        raise NotImplementedError("Generic instanton equations not yet implemented")
+    #     return np.concatenate((2.*p+self.F(x, t),
+    #                            -np.dot(p, derivative(self.F, x, dx=1e-6, args=(t, )))))
+
+    def _instantoneq_jac(self, t, canonical_coords):
+        """
+        Jacobian of instanton dynamics.
+
+        canonical_coords should be a 2n-dimensional numpy.ndarray
+        containing canonical coordinates and momenta.
+        """
+        n = len(canonical_coords)/2
+        x = canonical_coords[:n]
+        p = canonical_coords[n:]
+        raise NotImplementedError("Generic instanton equations Jacobian not yet implemented")
+
+        # dbdx = derivative(self.F, x, dx=1e-6, args=(t, ))
+        # return np.array([[dbdx, 2.],
+        #                  [-p*derivative(self.F, x, n=2, dx=1e-6, args=(t, )), -dbdx]])
+
+
 class ConstantDiffusionProcess(DiffusionProcess):
     r"""
     Diffusion processes, in arbitrary dimensions, with constant diffusion coefficient.
@@ -374,6 +409,31 @@ class OrnsteinUhlenbeck(ConstantDiffusionProcess):
         """
         y = self.mu-x
         return self.theta*y.dot(y)/2
+
+    def _instantoneq(self, t, canonical_coords):
+        """
+        Equations of motion for instanton dynamics.
+        These are just the Hamilton equations corresponding to the action.
+
+        canonical_coords should be a 2n-dimensional numpy.ndarray
+        containing canonical coordinates x and momenta p.
+
+        Return a numpy.ndarray of length 2n containing the derivatives xdot and pdot.
+        """
+        n = len(canonical_coords)/2
+        x = canonical_coords[:n]
+        p = canonical_coords[n:]
+        return np.concatenate((2.*p+self.drift(x, t), self.theta*p))
+
+    def _instantoneq_jac(self, t, canonical_coords):
+        """
+        Jacobian of instanton dynamics.
+
+        canonical_coords should be a 2n-dimensional numpy.ndarray
+        containing canonical coordinates and momenta.
+        """
+        id3 = scipy.sparse.eye(3)
+        return scipy.sparse.bmat([[-self.theta*id3, 2*id3], [None, self.theta.id3]]).toarray()
 
 class Wiener(OrnsteinUhlenbeck):
     r"""
