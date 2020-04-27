@@ -12,5 +12,6 @@ For now, only algorithms of the *Adaptive Multilevel Splitting* family are imple
    :toctree:
 
    ams
+   instanton
 """
 from . import ams, instanton

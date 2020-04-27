@@ -79,7 +79,7 @@ More efficient methods shall be added to the module in the future.
 """
 import numpy as np
 import scipy.integrate
-from .dynamics.diffusion1d import DiffusionProcess1D
+from ..dynamics.diffusion1d import DiffusionProcess1D
 
 class InstantonSolver:
     """
@@ -126,7 +126,7 @@ class InstantonSolver:
         x, p = np.hsplit(traj, 2)
         return times, np.squeeze(x), np.squeeze(p)
 
-    def instanton_bvp(self, xstart, xend, *args):
+    def instanton_bvp(self, xstart, xend, *args, **kwargs):
         """
         Solve the instanton equations as a boundary value problem.
         xstart and xend are the initial and final conditions.
@@ -139,5 +139,5 @@ class InstantonSolver:
         times = np.sort(args)
         res = scipy.integrate.solve_bvp(self.instanton_eq, bc, times,
                                         (np.linspace(xstart, xend, num=len(times)),
-                                         np.zeros_like(times)))
+                                         np.zeros_like(times)), **kwargs)
         return times, res.sol(times)[0], res.sol(times)[1]
