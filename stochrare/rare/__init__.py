@@ -13,4 +13,4 @@ For now, only algorithms of the *Adaptive Multilevel Splitting* family are imple
 
    ams
 """
-from . import ams
+from . import ams, instanton
