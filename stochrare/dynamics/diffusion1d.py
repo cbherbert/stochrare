@@ -33,6 +33,7 @@ import numpy as np
 import scipy.integrate as integrate
 from scipy.interpolate import interp1d
 from scipy.misc import derivative
+from scipy.special import erfi, erfcx
 from .. import edpy
 from .. import fokkerplanck as fp
 from ..utils import pseudorand
@@ -83,7 +84,7 @@ class DiffusionProcess1D:
         at the input points.
         Caveat: This works only for 1D dynamics.
         """
-        fun = interp1d(X, -self.drift(X, t))
+        fun = interp1d(X, -self.drift(X, t), fill_value='extrapolate')
         return np.array([integrate.quad(fun, 0.0, x)[0] for x in X])
 
     def update(self, xn, tn, **kwargs):
@@ -777,6 +778,42 @@ class OrnsteinUhlenbeck1D(ConstantDiffusionProcess1D):
         else:
             xx = ConstantDiffusionProcess1D.update(self, xn, tn, **kwargs)
         return xx
+
+    def mean_firstpassage_time(self, x0, a):
+        r"""
+        Return the mean first-passage time for the 1D Ornstein-Uhlenbeck process (exact formula).
+
+        Parameters
+        ----------
+        x0: float
+            Initial position
+        a: float
+            Threshold
+
+        Return
+        ------
+        tau: float
+            Mean first-passage time
+
+        Notes
+        -----
+        The first passage time is defined by :math:`\tau_a(x_0)=\inf \{t>0, X_t>a | X_0=x_0\}`.
+        It is a random variable. Here, we compute only its expectation value, for which an
+        analytical formula is known.
+
+        General methods for first-passage time conputations are avaiblable in the
+        `stochrare.firstpassage` module.
+        """
+        if self.mu != 0:
+            raise NotImplementedError("The theoretical formula has not been checked for nonzero mu")
+        if x0 > a:
+            tau = 0
+        else:
+            k = np.sqrt(self.theta/(2*self.D0))
+            u = np.linspace(k*x0, k*a)
+            integral = np.sqrt(np.pi)/self.theta*np.trapz(erfcx(u), u)
+            tau = np.pi/self.theta*(erfi(k*a)-erfi(k*x0))-integral
+        return tau
 
     def _instantoneq(self, t, Y):
         r"""

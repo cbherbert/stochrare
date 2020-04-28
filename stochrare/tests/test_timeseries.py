@@ -54,6 +54,11 @@ class TestTimeseries(unittest.TestCase):
         np.testing.assert_allclose(ts.residencetimes(data, 1),
                                    np.array([2, 12, 7, 3, 19, 22, 12, 7]))
 
+    def test_trajfpt(self):
+        t = np.arange(10)
+        x = np.arange(10)
+        self.assertEqual(list(ts.traj_fpt(5, np.array([t, x]))), [6])
+
     def test_blockmaximum(self):
         data = np.random.random(101)
         data[20] = 2.0

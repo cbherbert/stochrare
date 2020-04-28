@@ -115,6 +115,30 @@ def residencetimes(x, threshold):
     return transtimes[1:]-transtimes[:-1]
 
 
+def traj_fpt(M, *args):
+    """
+    Compute the first passage time for each trajectory given as argument.
+
+    Parameters
+    ----------
+    M: float
+        The threshold
+    args: pairs t,x (ndarrays)
+        The trajectories
+
+    Yields
+    ------
+    t: float
+        First-passage time for the trajectories
+    """
+    for tt, xx in args:
+        for t, x in zip(tt, xx):
+            if x > M:
+                yield t
+                break
+
+
+
 def blockmaximum(traj, nblocks, mode='proba', modified=False, **kwargs):
     """
     Generate pairs (a, p(a)) (mode='proba') or (a, r(a)) (mode='returntime'),
