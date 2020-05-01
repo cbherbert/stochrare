@@ -26,7 +26,6 @@ class FirstPassageProcess:
 
     Parameters
     ----------
-
     model : stochrare.dynamics.DiffusionProcess1D
         The stochastic process to which the first-passage time is associated
 
@@ -39,7 +38,21 @@ class FirstPassageProcess:
     def firstpassagetime(self, x0, t0, A, **kwargs):
         """
         Computes the first passage time, defined by $\tau_A = inf{t>t0 | x(t)>A}$,
-        for one realization
+        for one realization.
+
+        Parameters
+        ----------
+        x0: float
+            The initial position
+        t0: float
+            The initial time
+        A: float
+            The threshold
+
+        Returns
+        -------
+        t: float
+            A realization of the first-passage time
         """
         dt = kwargs.get('dt', self.model.default_dt)
         return self._fpt_euler(x0, t0, A, dt, self.model.drift, self.model.diffusion)
@@ -106,15 +119,6 @@ class FirstPassageProcess:
 
         plt.show()
 
-    @classmethod
-    def traj_fpt(cls, M, *args):
-        """ Compute the first passage time for each trajectory given as argument """
-        for tt, xx in args:
-            for t, x in zip(tt, xx):
-                if x > M:
-                    yield t
-                    break
-
 
     def firstpassagetime_cdf(self, x0, A, *args, **kwargs):
         """
@@ -172,21 +176,6 @@ class FirstPassageProcess:
                   'lambda': (time[1:-1], -edpy.CenteredFD(time).grad(np.log(Gloc)))}
         return output.get(kwargs.get('out', 'G'))
 
-    def firstpassagetime_moments(self, x0, A, *args, **kwargs):
-        """
-        Computes the moments of the first passage time, <tau_A^n>_{x0,t0},
-        by solving the Fokker-Planck equation
-        """
-        t0 = kwargs.get('t0', 0.0)
-        tmax = kwargs.pop('tmax', 10.0)
-        nt = kwargs.pop('nt', 10)
-        times = np.linspace(t0, tmax, num=nt)
-        _, cdf = self.firstpassagetime_cdf(x0, A, *times, out='cdf', **kwargs)
-        Mn = []
-        for n in args:
-            Mn += [t0**n + n*integrate.trapz(cdf*times**(n-1), times)]
-        return Mn
-
     def firstpassagetime_avg_theory(self, x0, *args, **kwargs):
         r"""
         Compute the mean first-passage time using the theoretical formula:
@@ -208,12 +197,12 @@ class FirstPassageProcess:
         badargs, args = (args[args <= x0], args[args > x0])
 
         def exppot_int(a, b, sign=-1, fun=lambda z: 1):
-            z = np.linspace(a, b)
+            z = np.linspace(a, b, **kwargs)
             return integrate.trapz(np.exp(sign*self.model.potential(z, t0)/self.model.D0)*fun(z), z)
         # compute the inner integral and interpolate:
-        y = np.linspace(x0, args[-1])
+        y = np.linspace(x0, args[-1], **kwargs)
         arr = np.array([exppot_int(*u) for u in [(inf, y[0])]+list(zip(y[:-1], y[1:]))])
-        ifun = interp1d(y, arr.cumsum())
+        ifun = interp1d(y, arr.cumsum(), fill_value='extrapolate')
         # now compute the outer integral by chunks
         oint = np.array([exppot_int(*bds, sign=1, fun=ifun) for bds in [(x0, args[0])]+list(zip(args[:-1], args[1:]))]).cumsum()/self.model.D0
         return np.concatenate((badargs, args)), np.concatenate((np.zeros_like(badargs), oint))
@@ -241,57 +230,11 @@ class FirstPassageProcess:
         def exppot(y, sign=-1, fun=lambda z: 1):
             return np.exp(sign*self.model.potential(y, t0)/self.model.D0)*fun(y)
         # compute the inner integral and interpolate:
-        z = np.linspace(inf, args[-1])
+        z = np.linspace(inf, args[-1], **kwargs)
         iarr = integrate.cumtrapz(exppot(z), z, initial=0)
         ifun = interp1d(z, iarr)
         # now compute the outer integral by chunks
-        y = np.linspace(x0, args[-1])
+        y = np.linspace(x0, args[-1], **kwargs)
         oarr = integrate.cumtrapz(exppot(y, sign=1, fun=ifun), y, initial=0)/self.model.D0
         ofun = interp1d(y, oarr)
         return np.concatenate((badargs, args)), np.concatenate((np.zeros_like(badargs), ofun(args)))
-
-
-    def firstpassagetime_avg(self, x0, *args, **kwargs):
-        """
-        Compute the mean first passage time by one of the following methods:
-        solving the FP equation, its adjoint, or using the theoretical solution.
-
-        x0 is the initial condition (at t0), and 'args' contains the list of
-        threshold values for which to compute the first passage time.
-
-        The theoretical formula is valid only for an homogeneous process;
-        for the computation, we 'freeze' the potential at t=t0.
-        """
-        src = kwargs.pop('src', 'FP')
-        tmax = kwargs.pop('tmax', 100.0)
-        nt = kwargs.pop('nt', 10)
-        t0 = kwargs.pop('t0', 0.0)
-        # args have to be sorted in increasing order:
-        args = np.sort(args)
-        # remove the values of args which are <= x0:
-        badargs, args = (args[args <= x0], args[args > x0])
-        if src == 'theory':
-            return self.firstpassagetime_avg_theory(x0, *args, **kwargs)
-        elif src == 'theory2':
-            return self.firstpassagetime_avg_theory2(x0, *args, **kwargs)
-        elif src == 'adjoint':
-            # here we need to solve the adjoint FP equation for each threshold value,
-            # so this is much more expensive than the theoretical formula of course.
-            def interp_int(G, t):
-                logG = interp1d(t, np.log(G), fill_value="extrapolate")
-                return integrate.quad(lambda x: np.exp(logG(x)), 0.0, np.inf)[0] # careful: this is not the right expression for arbitrary t0 !!
-            integ_method = {True: interp_int,
-                            False: integrate.trapz}.get(kwargs.pop('interpolate', True))
-            return np.concatenate((badargs, args)), np.array(len(badargs)*[0.]+[integ_method(*(self.firstpassagetime_cdf(x0, A, *np.linspace(0.0, tmax, num=nt), t0=t0, out='G', src='adjoint', **kwargs)[::-1])) for A in args])
-#        elif src in ('FP','quad'):
-        elif src == 'FP':
-            # here we need to solve the FP equation for each threshold value,
-            # so this is much more expensive than the theoretical formula of course.
-            def interp_int(G, t):
-                logG = interp1d(t, np.log(G), fill_value="extrapolate")
-                return integrate.quad(lambda x: np.exp(logG(x)), t0, np.inf)[0]
-            integ_method = {True: interp_int,
-                            False: integrate.trapz}.get(kwargs.pop('interpolate', True))
-            return np.concatenate((badargs, args)), np.array(len(badargs)*[0.]+[t0+integ_method(*(self.firstpassagetime_cdf(x0, A, *np.linspace(t0, tmax, num=nt), t0=t0, out='G', **kwargs)[::-1])) for A in args])
-        else:
-            raise NotImplementedError('Unrecognized method for computing first passage time')

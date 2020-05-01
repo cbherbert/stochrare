@@ -33,6 +33,7 @@ import numpy as np
 import scipy.integrate as integrate
 from scipy.interpolate import interp1d
 from scipy.misc import derivative
+from scipy.special import erfi, erfcx
 from numba import jit
 from .. import edpy
 from .. import fokkerplanck as fp
@@ -83,7 +84,7 @@ class DiffusionProcess1D:
         at the input points.
         Caveat: This works only for 1D dynamics.
         """
-        fun = interp1d(X, -1*self.drift(X, t))
+        fun = interp1d(X, -1*self.drift(X, t), fill_value='extrapolate')
         return np.array([integrate.quad(fun, 0.0, x)[0] for x in X])
 
     def update(self, xn, tn, **kwargs):
@@ -307,25 +308,6 @@ class DiffusionProcess1D:
                 break
         return t, x
 
-    def blowuptime(self, x0, t0, **kwargs):
-        """
-        Compute the last time with finite values, for one realization.
-
-        Parameters
-        ----------
-        x0: float
-            The initial position.
-        t0: float
-            The initial time.
-
-        Returns
-        -------
-        The last time with finite values for a realization with initial conditions (t0, x0).
-        This is a random variable.
-        """
-        t, x = self.trajectory(x0, t0, **kwargs)
-        return t[np.isfinite(x)][-1]
-
     def empirical_vector(self, x0, t0, nsamples, *args, **kwargs):
         """
         Empirical vector at given times.
@@ -409,6 +391,83 @@ class DiffusionProcess1D:
         for which theoretical results exists should override it."""
         return NotImplemented
 
+    def _instantoneq(self, t, Y):
+        r"""
+        Equations of motion for instanton dynamics.
+
+        Parameters
+        ----------
+        t: float
+            The time.
+        Y: ndarray or list
+            Vector with two elements: x=Y[0] the position and p=Y[1] the impulsion.
+
+        Returns
+        -------
+        xdot, pdot: ndarray (size 2)
+            The right hand side of the Hamilton equations.
+
+        Notes
+        -----
+        These are the Hamilton equations corresponding to the following action:
+        :math:`A=1/2 \int ((\dot{x}-b(x, t))/sigma(x, t))^2 dt`, i.e.
+        :math:`\dot{x}=\sigma(x,t)^2*p+b(x, t)` and
+        :math:`\dot{p}=-\sigma(x, t)*\sigma'(x, t)*p^2-b'(x, t)*p`.
+
+        The Hamiltonian is :math:`H=\sigma^2(x, t)*p^2/2+b(x, t)*p`.
+
+        Note that these equations include the diffusion coefficient, unlike those we use in the case
+        of a constant diffusion process `ConstantDiffusionProcess1D`.
+        Hence, for constant diffusion coefficients, the two only coincide when D=1.
+        Otherwise, it amounts at a rescaling of the impulsion.
+        """
+        x = Y[0]
+        p = Y[1]
+        dbdx = derivative(self.drift, x, dx=1e-6, args=(t, ))
+        dsigmadx = derivative(self.diffusion, x, dx=1e-6, args=(t, ))
+        return np.array([p*self.diffusion(x, t)**2+self.drift(x, t),
+                         -p**2*self.diffusion(x, t)*dsigmadx-p*dbdx])
+
+    def _instantoneq_jac(self, t, Y):
+        r"""
+        Jacobian of the equations of motion for instanton dynamics.
+
+        Parameters
+        ----------
+        t: float
+            The time.
+        Y: ndarray or list
+            Vector with two elements: x=Y[0] the position and p=Y[1] the impulsion.
+
+        Returns
+        -------
+        xdot, pdot: ndarray (shape (2, 2))
+            The Jacobian of the right hand side of the Hamilton equations, i.e.
+            :math:`[[d\dot{x}/dx, d\dot{x}/dp], [d\dot{p}/dx, d\dot{p}/dp]]`.
+
+        Notes
+        -----
+        These are the Hamilton equations corresponding to the following action:
+        :math:`A=1/2 \int ((\dot{x}-b(x, t))/sigma(x, t))^2 dt`, i.e.
+        :math:`\dot{x}=\sigma(x,t)^2*p+b(x, t)` and
+        :math:`\dot{p}=-\sigma(x, t)*\sigma'(x, t)*p^2-b'(x, t)*p`.
+
+        The Hamiltonian is :math:`H=\sigma^2(x, t)*p^2/2+b(x, t)*p`.
+
+        Note that these equations include the diffusion coefficient, unlike those we use in the case
+        of a constant diffusion process `ConstantDiffusionProcess1D`.
+        Hence, for constant diffusion coefficients, the two only coincide when D=1.
+        Otherwise, it amounts at a rescaling of the impulsion.
+        """
+        x = Y[0]
+        p = Y[1]
+        dbdx = derivative(self.drift, x, dx=1e-6, args=(t, ))
+        d2bdx2 = derivative(self.drift, x, n=2, dx=1e-5, args=(t, ))
+        sigma = self.diffusion(x, t)
+        dsigmadx = derivative(self.diffusion, x, dx=1e-6, args=(t, ))
+        d2sigmadx2 = derivative(self.diffusion, x, n=2, dx=1e-5, args=(t, ))
+        return np.array([[dbdx+2*p*sigma*dsigmadx, sigma**2],
+                         [-p*d2bdx2-p**2*(dsigmadx**2+sigma*d2sigmadx2), -dbdx-2*p*sigma*dsigmadx]])
 
 class ConstantDiffusionProcess1D(DiffusionProcess1D):
     r"""
@@ -597,63 +656,77 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
         fig, ax, _ = plot.pdf_plot1d(fig=fig, ax=ax, legend=True)
         return fig, ax
 
-
-    def instanton(self, x0, p0, *args, **kwargs):
-        """
-        Numerical integration of the equations of motion for instantons.
-        x0 and p0 are the initial conditions.
-        Return the instanton trajectory (t,x).
-        """
-        def inverse(f):
-            return lambda Y, t: -f(Y, -t)
-        def filt_fun(t, x):
-            filt = (x > 100.0).nonzero()[0]
-            if len(filt) > 0:
-                maxind = filt[0]
-            else:
-                maxind = -1
-            return t[:maxind], x[:maxind]
-        solver = kwargs.pop('solver', 'odeint')
-        scheme = kwargs.pop('integrator', 'dopri5')
-        filt_traj = kwargs.pop('filter_traj', False)
-        back = kwargs.pop('backwards', False)
-        times = np.sort(args)
-        fun = self._instantoneq
-        jac = self._instantoneq_jac
-        if back:
-            fun = inverse(fun)
-            jac = inverse(jac)
-        if solver == 'odeint':
-            x = integrate.odeint(fun, (x0, p0), times, tfirst=True, **kwargs)[:, 0]
-            return filt_fun(times, x) if filt_traj else (times, x)
-        elif solver == 'odeclass':
-            integ = integrate.ode(fun, jac=jac).set_integrator(scheme, **kwargs)
-            integ.set_initial_value([x0, p0], times[0])
-            return times, [integ.integrate(t)[0] for t in times]
-
     def _instantoneq(self, t, Y):
-        """
+        r"""
         Equations of motion for instanton dynamics.
-        These are just the Hamilton equations corresponding to the action.
 
-        Y should be a vector (list or numpy.ndarray) with two items: x=Y[0] and p=Y[1]
-        """
-        x = Y[0]
-        p = Y[1]
-        return [2.*p+self.F(x, t),
-                -p*derivative(self.F, x, dx=1e-6, args=(t, ))]
+        Parameters
+        ----------
+        t: float
+            The time.
+        Y: ndarray or list
+            Vector with two elements: x=Y[0] the position and p=Y[1] the impulsion.
 
-    def _instantoneq_jac(self, t, Y):
-        """
-        Jacobian of instanton dynamics.
+        Returns
+        -------
+        xdot, pdot: ndarray (size 2)
+            The right hand side of the Hamilton equations.
 
-        Y should be a vector (list or numpy.ndarray) with two items: x=Y[0] and p=Y[1]
+        Notes
+        -----
+        These are the Hamilton equations corresponding to the following action:
+        :math:`A=1/4 \int ((\dot{x}-b(x, t)))^2 dt`, i.e.
+        :math:`\dot{x}=2p+b(x, t)` and
+        :math:`\dot{p}=-b'(x, t)*p`.
+
+        The Hamiltonian is :math:`H=p^2/2+b(x, t)*p`.
+
+        Note that these equations do not include the (constant) diffusion coefficient,
+        unlike those we use in the case of a non-constant diffusion process `DiffusionProcess1D`.
+        Hence, for constant diffusion coefficients, the two only coincide when D=1.
+        Otherwise, it amounts at a rescaling of the impulsion.
         """
         x = Y[0]
         p = Y[1]
         dbdx = derivative(self.F, x, dx=1e-6, args=(t, ))
-        return np.array([[dbdx, 2.],
-                         [-p*derivative(self.F, x, n=2, dx=1e-6, args=(t, )), -dbdx]])
+        return [2.*p+self.F(x, t), -p*dbdx]
+
+    def _instantoneq_jac(self, t, Y):
+        r"""
+        Jacobian of the equations of motion for instanton dynamics.
+
+        Parameters
+        ----------
+        t: float
+            The time.
+        Y: ndarray or list
+            Vector with two elements: x=Y[0] the position and p=Y[1] the impulsion.
+
+        Returns
+        -------
+        xdot, pdot: ndarray (shape (2, 2))
+            The Jacobian of the right hand side of the Hamilton equations, i.e.
+            :math:`[[d\dot{x}/dx, d\dot{x}/dp], [d\dot{p}/dx, d\dot{p}/dp]]`.
+
+        Notes
+        -----
+        These are the Hamilton equations corresponding to the following action:
+        :math:`A=1/4 \int ((\dot{x}-b(x, t)))^2 dt`, i.e.
+        :math:`\dot{x}=2p+b(x, t)` and
+        :math:`\dot{p}=-b'(x, t)*p`.
+
+        The Hamiltonian is :math:`H=p^2/2+b(x, t)*p`.
+
+        Note that these equations do not include the (constant) diffusion coefficient,
+        unlike those we use in the case of a non-constant diffusion process `DiffusionProcess1D`.
+        Hence, for constant diffusion coefficients, the two only coincide when D=1.
+        Otherwise, it amounts at a rescaling of the impulsion.
+        """
+        x = Y[0]
+        p = Y[1]
+        dbdx = derivative(self.F, x, dx=1e-6, args=(t, ))
+        d2bdx2 = derivative(self.F, x, n=2, dx=1e-5, args=(t, ))
+        return np.array([[dbdx, 2.], [-p*d2bdx2, -dbdx]])
 
 
     def action(self, *args):
@@ -784,27 +857,108 @@ class OrnsteinUhlenbeck1D(ConstantDiffusionProcess1D):
             index = index + 1
         return x
 
-    def _instantoneq(self, t, Y):
-        """
-        Equations of motion for instanton dynamics.
-        These are just the Hamilton equations corresponding to the action.
+    def mean_firstpassage_time(self, x0, a):
+        r"""
+        Return the mean first-passage time for the 1D Ornstein-Uhlenbeck process (exact formula).
 
-        Y should be a vector (list or numpy.ndarray) with two items: x=Y[0] and p=Y[1]
+        Parameters
+        ----------
+        x0: float
+            Initial position
+        a: float
+            Threshold
+
+        Return
+        ------
+        tau: float
+            Mean first-passage time
+
+        Notes
+        -----
+        The first passage time is defined by :math:`\tau_a(x_0)=\inf \{t>0, X_t>a | X_0=x_0\}`.
+        It is a random variable. Here, we compute only its expectation value, for which an
+        analytical formula is known.
+
+        General methods for first-passage time conputations are avaiblable in the
+        `stochrare.firstpassage` module.
+        """
+        if self.mu != 0:
+            raise NotImplementedError("The theoretical formula has not been checked for nonzero mu")
+        if x0 > a:
+            tau = 0
+        else:
+            k = np.sqrt(self.theta/(2*self.D0))
+            u = np.linspace(k*x0, k*a)
+            integral = np.sqrt(np.pi)/self.theta*np.trapz(erfcx(u), u)
+            tau = np.pi/self.theta*(erfi(k*a)-erfi(k*x0))-integral
+        return tau
+
+    def _instantoneq(self, t, Y):
+        r"""
+        Equations of motion for instanton dynamics.
+
+        Parameters
+        ----------
+        t: float
+            The time.
+        Y: ndarray or list
+            Vector with two elements: x=Y[0] the position and p=Y[1] the impulsion.
+
+        Returns
+        -------
+        xdot, pdot: ndarray (size 2)
+            The right hand side of the Hamilton equations.
+
+        Notes
+        -----
+        These are the Hamilton equations corresponding to the following action:
+        :math:`A=1/4 \int ((\dot{x}-b(x, t)))^2 dt`, i.e.
+        :math:`\dot{x}=2p+b(x, t)` and
+        :math:`\dot{p}=-b'(x, t)*p`.
+
+        The Hamiltonian is :math:`H=p^2/2+b(x, t)*p`.
+
+        Note that these equations do not include the (constant) diffusion coefficient,
+        unlike those we use in the case of a non-constant diffusion process `DiffusionProcess1D`.
+        Hence, for constant diffusion coefficients, the two only coincide when D=1.
+        Otherwise, it amounts at a rescaling of the impulsion.
         """
         x = Y[0]
         p = Y[1]
-        return [2.*p+self.F(x, t),
-                -p*self.d_f(x, t)]
+        return [2.*p+self.theta*(self.mu-x), p*self.theta]
 
     def _instantoneq_jac(self, t, Y):
-        """
-        Jacobian of instanton dynamics.
+        r"""
+        Jacobian of the equations of motion for instanton dynamics.
 
-        Y should be a vector (list or numpy.ndarray) with two items: x=Y[0] and p=Y[1]
+        Parameters
+        ----------
+        t: float
+            The time.
+        Y: ndarray or list
+            Vector with two elements: x=Y[0] the position and p=Y[1] the impulsion.
+
+        Returns
+        -------
+        xdot, pdot: ndarray (shape (2, 2))
+            The Jacobian of the right hand side of the Hamilton equations, i.e.
+            :math:`[[d\dot{x}/dx, d\dot{x}/dp], [d\dot{p}/dx, d\dot{p}/dp]]`.
+
+        Notes
+        -----
+        These are the Hamilton equations corresponding to the following action:
+        :math:`A=1/4 \int ((\dot{x}-b(x, t)))^2 dt`, i.e.
+        :math:`\dot{x}=2p+b(x, t)` and
+        :math:`\dot{p}=-b'(x, t)*p`.
+
+        The Hamiltonian is :math:`H=p^2/2+b(x, t)*p`.
+
+        Note that these equations do not include the (constant) diffusion coefficient,
+        unlike those we use in the case of a non-constant diffusion process `DiffusionProcess1D`.
+        Hence, for constant diffusion coefficients, the two only coincide when D=1.
+        Otherwise, it amounts at a rescaling of the impulsion.
         """
-        dbdx = self.d_f(Y[0], t)
-        return np.array([[dbdx, 2.],
-                         [0, -dbdx]])
+        return np.array([[-self.theta, 2.], [0, self.theta]])
 
 class Wiener1D(OrnsteinUhlenbeck1D):
     r"""

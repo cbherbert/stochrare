@@ -1,7 +1,10 @@
 Tutorials
 =========
 
-To illustrate the functionnalities and use cases of stochrare, we provide Jupyter notebooks, which can either be viewed on-line here or run interactively.
+.. |binder| image:: https://mybinder.org/badge_logo.svg
+ :target: https://mybinder.org/v2/gh/cbherbert/stochrare/master?filepath=doc%2Fnotebooks
+
+To illustrate the functionnalities and use cases of stochrare, we provide Jupyter notebooks, which can either be viewed by clicking the links below or run interactively, either by downloading your local copy of the repository, or on Binder, without installing anything: |binder|.
 
 .. toctree::
    :maxdepth: 1
