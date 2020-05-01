@@ -5,6 +5,7 @@
 [![codecov](https://codecov.io/gh/cbherbert/stochrare/branch/master/graph/badge.svg)](https://codecov.io/gh/cbherbert/stochrare)
 [![Pypi Version](https://img.shields.io/pypi/v/stochrare.svg)](https://pypi.org/project/stochrare/)
 
+
 This Python package aims at providing tools to study stochastic processes:
 - numerical integration of SDEs
 - numerical solver for the Fokker-Planck equations
@@ -14,6 +15,8 @@ This Python package aims at providing tools to study stochastic processes:
 
 Stochastic models arise in many scientific fields: physics, chemistry, biology, finance...
 Although the package was initially developed with an out-of-equilibrium statistical physics point of view, it aims at providing tools to support research with stochastic processes in any of these fields.
+
+Try stochrare without installing: [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/cbherbert/stochrare/master?filepath=doc%2Fnotebooks)
 
 ## Scope
 
