@@ -275,62 +275,6 @@ class DiffusionProcess1D:
             index = index + 1
         return x
 
-    @pseudorand
-    def _trajectory_fast(self, x0, t0, **kwargs):
-        r"""
-        Integrate the SDE with given initial condition.
-
-        Parameters
-        ----------
-        x0: float
-            The initial position.
-        t0: float
-            The initial time.
-
-        Keyword Arguments
-        -----------------
-        dt: float
-            The time step, forwarded to the :math:`update` routine
-            (default 0.1, unless overridden by a subclass).
-        T: float
-            The time duration of the trajectory (default 10).
-        finite: bool
-            Filter finite values before returning trajectory (default False).
-
-        Returns
-        -------
-        t, x: ndarray, ndarray
-            Time-discrete sample path for the stochastic process with initial conditions (t0, x0).
-            The array t contains the time discretization and x the value of the sample path
-            at these instants.
-
-        Notes
-        -----
-        For some reasons which are not fully elucidated yet, this old version of the integration
-        routine, although less flexible than the new (it does not allow for providing the
-        Brownian path) can be up to three times faster.
-        Hence, until the :meth:`trajectory` method has been optimized, we keep this method
-        around for cases where performance matter.
-
-        'Premature optimization is the root of all evil' --- Donald Knuth.
-        """
-        t = [t0]
-        x = [x0]
-        dt = kwargs.pop('dt', self.default_dt)
-        time = kwargs.pop('T', 10.0)
-        precision = kwargs.pop('precision', np.float32)
-        if dt < 0:
-            time = -time
-        while t[-1] <= t0+time:
-            t.append(t[-1] + dt)
-            x.append(self.update(x[-1], t[-1], dt=dt, **kwargs))
-        t = np.array(t, dtype=precision)
-        x = np.array(x, dtype=precision)
-        if kwargs.pop('finite', False):
-            t = t[np.isfinite(x)]
-            x = x[np.isfinite(x)]
-        return t[t <= t0+time], x[t <= t0+time]
-
     def trajectory_conditional(self, x0, t0, pred, **kwargs):
         r"""
         Compute sample path satisfying arbitrary condition.
@@ -690,7 +634,7 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
         tau_tol = kwargs.get('ttol', 0.01*np.abs(tau-t0))
         num = kwargs.pop('num', 10)
         interp = kwargs.pop('interp', False)
-        npts = kwargs.pop('npts', np.abs(tau-t0)/dt)
+        npts = kwargs.pop('npts', int(np.abs(tau-t0)/dt))
         while num > 0:
             x = [x0]
             t = [t0]

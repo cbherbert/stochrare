@@ -4,12 +4,24 @@ Unit tests for the diffusion1d module.
 import unittest
 import numpy as np
 import stochrare.dynamics.diffusion1d as diffusion1d
+from stochrare.timeseries import traj_fpt
 
 class TestDynamics1D(unittest.TestCase):
+    def test_potential(self):
+        x = np.linspace(-1, 1)
+        np.testing.assert_allclose(diffusion1d.Wiener1D.potential(x), np.zeros_like(x))
+        oup = diffusion1d.OrnsteinUhlenbeck1D(0, 1, 1)
+        np.testing.assert_allclose(oup.potential(x, 0), 0.5*x**2)
+
     def test_update(self):
         wiener = diffusion1d.Wiener1D(D=0.5)
+        oup = diffusion1d.OrnsteinUhlenbeck1D(0, 1, 1)
         dw = np.random.normal()
         self.assertEqual(wiener.update(0, 0, dw=dw), dw)
+        self.assertEqual(oup.update(1, 0, dw=dw, dt=0.01), np.exp(-0.01)+np.sqrt(1-np.exp(-0.02))*dw)
+        self.assertEqual(oup.update(1, 0, dw=dw, dt=0.01, method='euler'), 1-0.01+np.sqrt(2)*dw)
+        self.assertEqual(diffusion1d.DiffusionProcess1D.update(oup, 1, 0, dw=dw, dt=0.01,
+                                                               method='euler'), 1-0.01+np.sqrt(2)*dw)
 
     def test_integrate_sde(self):
         oup = diffusion1d.OrnsteinUhlenbeck1D(0, 1, 1)
@@ -50,6 +62,22 @@ class TestDynamics1D(unittest.TestCase):
         np.testing.assert_allclose(traj1[1], traj2[1], rtol=1e-5)
         np.testing.assert_allclose(traj1[1], traj_exact, rtol=1e-2)
         np.testing.assert_allclose(traj3[1], traj_exact, rtol=1e-5)
+
+    def test_trajectory_conditional(self):
+        oup = diffusion1d.OrnsteinUhlenbeck1D(0, 1, 1)
+        pred = lambda t, x: np.mean(x[t > 0.5]) > np.mean(x[t < 0.5])
+        t, x = oup.trajectory_conditional(0, 0, pred, T=1)
+        self.assertTrue(np.mean(x[t > 0.5]) > np.mean(x[t < 0.5]))
+
+    def test_traj_cond_gen(self):
+        oup = diffusion1d.OrnsteinUhlenbeck1D(0, 1, 1)
+        gen = oup.traj_cond_gen(0, 0, 0.5, 0.5)
+        fpt = np.array([list(traj_fpt(0.5, np.array([t, x]))) for t, x in gen])
+        np.testing.assert_allclose(fpt, np.full_like(fpt, 0.5))
+        gen = oup.traj_cond_gen(0, 0, 0.5, 0.5, interp=True)
+        fpt = np.array([list(traj_fpt(0.5, np.array([t, x]))) for t, x in gen])
+        np.testing.assert_allclose(fpt, np.full_like(fpt, 0.5))
+
 
     def test_instantoneq(self):
         oup = diffusion1d.OrnsteinUhlenbeck1D(0, 1, 1)
