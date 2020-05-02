@@ -16,6 +16,21 @@ representing the particular case of the Ornstein-Uhlenbeck process, and the `Wie
 corresponding  to Brownian motion.
 These classes form a hierarchy deriving from the base class, `DiffusionProcess1D`.
 
+References
+----------
+
+.. [1] G. Maruyama, Continuous Markov processes and stochastic equations,
+       Rend. Circ. Mat. Palermo 4, 48-90 (1955).
+.. [2] P. E. Kloeden and E. Platen, Numerical Solution of Stochastic Differential Equations,
+       Springer (1992).
+.. [3] G. N. Milstein, Numerical Integration of Stochastic Differential Equations,
+       Mathematics and Its Applications (Kluwer Academic, Norwell, MA, 1995)
+.. [4] G. E. Uhlenbeck and L. S. Ornstein, "On the theory of Brownian Motion".
+       Phys. Rev. 36, 823–841 (1930).
+.. [5] D. T. Gillespie, Exact numerical simulation of the Ornstein-Uhlenbeck process and its
+       integral, Phys. Rev. E 54, 2084 (1996).
+
+
 .. autoclass:: DiffusionProcess1D
    :members:
 
@@ -120,13 +135,6 @@ class DiffusionProcess1D:
         It is the straightforward generalization to SDEs of the Euler method for ODEs.
 
         The Euler-Maruyama method has strong order 0.5 and weak order 1.
-
-        References
-        ----------
-        .. [1] G. Maruyama, Continuous Markov processes and stochastic equations, Rend. Circ. Mat.
-          Palermo 4, 48-90 (1955).
-        .. [2] P. E. Kloeden and E. Platen, Numerical Solution of Stochastic Differential Equations,
-          Springer (1992).
         """
         dt = kwargs.get('dt', self.default_dt)
         dw = kwargs.get('dw', np.random.normal(0.0, np.sqrt(dt)))
@@ -192,10 +200,46 @@ class DiffusionProcess1D:
         return t[t <= t0+time], x[t <= t0+time]
 
     def integrate_sde(self, x, t, w, **kwargs):
-        """
-        Dispatch SDE integration for different numerical schemes:
-        - Euler-Maruyama
-        - Milstein (not implemented)
+        r"""
+        Dispatch SDE integration for different numerical schemes
+
+        Parameters
+        ----------
+        x: ndarray
+            The (empty) position array
+        t: ndarray
+            The sample time array
+        w: ndarray
+            The brownian motion realization used for integration
+
+        Keyword Arguments
+        -----------------
+        method: str
+            The numerical scheme: 'euler' (default) or 'milstein'
+        dt: float
+            The time step
+
+        Notes
+        -----
+        We define this method rather than putting the code in the `trajectory` method to make
+        it easier to implement numerical schemes valid only for specific classes of processes.
+        Then it suffices to implement the scheme and subclass this method to add the corresponding
+        'if' statement, without rewriting the entire `trajectory` method.
+
+        The implemented schemes are the following:
+
+        - Euler-Maruyama [1]_ [2]_:
+        :math:`x_{n+1} = x_n + F(x_n, t_n)\Delta t + \sigma(x_n, t_n) \Delta W_n`.
+
+        It is the straightforward generalization to SDEs of the Euler method for ODEs.
+
+        The Euler-Maruyama method has strong order 0.5 and weak order 1.
+
+        - Milstein [2]_ [3]_:
+        :math:`x_{n+1} = x_n + F(x_n, t_n)\Delta t + \sigma(x_n, t_n) \Delta W_n + \frac{\sigma(x_n, t_n)\sigma'(x_n, t_n)}{2} \lbrack \Delta W_n^2-\Delta t\rbrack`.
+
+        It is the next order scheme in the strong Ito-Taylor approximations.
+        The Milstein scheme has strong order 1.
         """
         method = kwargs.get('method', 'euler')
         dt = kwargs.get('dt', self.default_dt)
@@ -543,25 +587,52 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
 
         Notes
         -----
-        This method uses the Euler-Maruyama method [3]_ [4]_:
+        This method uses the Euler-Maruyama method [1]_ [2]_:
         :math:`x_{n+1} = x_n + F(x_n, t_n)\Delta t + \sqrt{2D} \Delta W_n`.
-
-        References
-        ----------
-        .. [3] G. Maruyama, Continuous Markov processes and stochastic equations, Rend. Circ. Mat.
-          Palermo 4, 48-90 (1955).
-        .. [4] P. E. Kloeden and E. Platen, Numerical Solution of Stochastic Differential Equations,
-          Springer (1992).
         """
         dt = kwargs.get('dt', self.default_dt)
         dw = kwargs.get('dw', np.random.normal(0.0, np.sqrt(dt)))
         return xn + self.drift(xn, tn)*dt + np.sqrt(2.0*self.D0)*dw
 
     def integrate_sde(self, x, t, w, **kwargs):
-        """
-        Dispatch SDE integration for different numerical schemes:
-        - Euler-Maruyama
-        - Milstein (not implemented)
+        r"""
+        Dispatch SDE integration for different numerical schemes
+
+        Parameters
+        ----------
+        x: ndarray
+            The (empty) position array
+        t: ndarray
+            The sample time array
+        w: ndarray
+            The brownian motion realization used for integration
+
+        Keyword Arguments
+        -----------------
+        method: str
+            The numerical scheme: 'euler' (default) or 'milstein'
+        dt: float
+            The time step
+
+        Notes
+        -----
+        The implemented schemes are the following:
+
+        - Euler-Maruyama [1]_ [2]_:
+        :math:`x_{n+1} = x_n + F(x_n, t_n)\Delta t + \sigma(x_n, t_n) \Delta W_n`.
+
+        It is the straightforward generalization to SDEs of the Euler method for ODEs.
+
+        The Euler-Maruyama method has strong order 0.5 and weak order 1.
+
+        - Milstein [2]_ [3]_:
+        :math:`x_{n+1} = x_n + F(x_n, t_n)\Delta t + \sigma(x_n, t_n) \Delta W_n + \frac{\sigma(x_n, t_n)\sigma'(x_n, t_n)}{2} \lbrack \Delta W_n^2-\Delta t\rbrack`.
+
+        It is the next order scheme in the strong Ito-Taylor approximations.
+        The Milstein scheme has strong order 1.
+
+        For processes with a constant diffusion coefficient, the Milstein method
+        reduces to the Euler-Maruyama method.
         """
         method = kwargs.get('method', 'euler')
         dt = kwargs.get('dt', self.default_dt)
@@ -774,16 +845,11 @@ class OrnsteinUhlenbeck1D(ConstantDiffusionProcess1D):
     -----
     The Ornstein-Uhlenbeck process has been used to model many systems.
     It was initially introduced to describe the motion of a massive
-    Brownian particle with friction [5]_ .
+    Brownian particle with friction [4]_ .
     It may also be seen as a diffusion process in a harmonic potential.
 
     Because many of its properties can be computed analytically, it provides a useful
     toy model for developing new methods.
-
-    References
-    ----------
-    .. [5] G. E. Uhlenbeck and L. S. Ornstein, "On the theory of Brownian Motion".
-           Phys. Rev. 36, 823–841 (1930).
     """
     def __init__(self, mu, theta, D, **kwargs):
         self.mu = mu
@@ -824,15 +890,10 @@ class OrnsteinUhlenbeck1D(ConstantDiffusionProcess1D):
 
         Notes
         -----
-        For the Ornstein-Uhlenbeck process, there is an exact method, the Gillespie algorithm [6]_.
+        For the Ornstein-Uhlenbeck process, there is an exact method, the Gillespie algorithm [5]_.
         This method is selected by default.
         If necessary, the Euler-Maruyama method can still be chosen using the ``method`` keyword
         argument.
-
-        References
-        ----------
-        .. [6] D. T. Gillespie, Exact numerical simulation of the Ornstein-Uhlenbeck process and its
-               integral, Phys. Rev. E 54, 2084 (1996).
         """
         if kwargs.pop('method', 'gillespie') == 'gillespie' and self.theta != 0:
             dt = kwargs.get('dt', self.default_dt)
@@ -844,11 +905,47 @@ class OrnsteinUhlenbeck1D(ConstantDiffusionProcess1D):
         return xx
 
     def integrate_sde(self, x, t, w, **kwargs):
-        """
-        Dispatch SDE integration for different numerical schemes:
-        - Euler-Maruyama
-        - Milstein (not implemented)
-        - Gillespie
+        r"""
+        Dispatch SDE integration for different numerical schemes
+
+        Parameters
+        ----------
+        x: ndarray
+            The (empty) position array
+        t: ndarray
+            The sample time array
+        w: ndarray
+            The brownian motion realization used for integration
+
+        Keyword Arguments
+        -----------------
+        method: str
+            The numerical scheme: 'euler' (default) or 'milstein'
+        dt: float
+            The time step
+
+        Notes
+        -----
+        The implemented schemes are the following:
+
+        - Euler-Maruyama [1]_ [2]_:
+        :math:`x_{n+1} = x_n + F(x_n, t_n)\Delta t + \sigma(x_n, t_n) \Delta W_n`.
+
+        It is the straightforward generalization to SDEs of the Euler method for ODEs.
+
+        The Euler-Maruyama method has strong order 0.5 and weak order 1.
+
+        - Milstein [2]_ [3]_:
+        :math:`x_{n+1} = x_n + F(x_n, t_n)\Delta t + \sigma(x_n, t_n) \Delta W_n + \frac{\sigma(x_n, t_n)\sigma'(x_n, t_n)}{2} \lbrack \Delta W_n^2-\Delta t\rbrack`.
+
+        It is the next order scheme in the strong Ito-Taylor approximations.
+        The Milstein scheme has strong order 1.
+
+        For processes with a constant diffusion coefficient, the Milstein method
+        reduces to the Euler-Maruyama method.
+
+        - Gillespie:
+        For the Ornstein-Uhlenbeck process, there is an exact method, the Gillespie algorithm [5]_.
         """
         method = kwargs.get('method', 'euler')
         dt = kwargs.get('dt', self.default_dt)
