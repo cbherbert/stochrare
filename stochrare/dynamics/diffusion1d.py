@@ -501,7 +501,6 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
         Damp: amplitude of the diffusion term (noise), scalar
         """
         DiffusionProcess1D.__init__(self, vecfield, lambda x, t: np.sqrt(2*Damp), **kwargs)
-        self.F = vecfield # We keep this temporarily for backward compatiblity
         self.D0 = Damp    # We keep this temporarily for backward compatiblity
 
     def update(self, xn, tn, **kwargs):
@@ -718,8 +717,8 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
         """
         x = Y[0]
         p = Y[1]
-        dbdx = derivative(self.F, x, dx=1e-6, args=(t, ))
-        return [2.*p+self.F(x, t), -p*dbdx]
+        dbdx = derivative(self.drift, x, dx=1e-6, args=(t, ))
+        return [2.*p+self.drift(x, t), -p*dbdx]
 
     def _instantoneq_jac(self, t, Y):
         r"""
@@ -754,8 +753,8 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
         """
         x = Y[0]
         p = Y[1]
-        dbdx = derivative(self.F, x, dx=1e-6, args=(t, ))
-        d2bdx2 = derivative(self.F, x, n=2, dx=1e-5, args=(t, ))
+        dbdx = derivative(self.drift, x, dx=1e-6, args=(t, ))
+        d2bdx2 = derivative(self.drift, x, n=2, dx=1e-5, args=(t, ))
         return np.array([[dbdx, 2.], [-p*d2bdx2, -dbdx]])
 
 
@@ -765,7 +764,7 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
         """
         for t, x in args:
             xdot = edpy.CenteredFD(t).grad(x)
-            p = 0.5*(xdot-self.F(x[1:-1], t[1:-1]))
+            p = 0.5*(xdot-self.drift(x[1:-1], t[1:-1]))
             yield integrate.trapz(p**2, t[1:-1])
 
 class OrnsteinUhlenbeck1D(ConstantDiffusionProcess1D):
@@ -798,7 +797,6 @@ class OrnsteinUhlenbeck1D(ConstantDiffusionProcess1D):
     def __init__(self, mu, theta, D, **kwargs):
         self.mu = mu
         self.theta = theta
-        self.d_f = (lambda x, t: -theta)
         super(OrnsteinUhlenbeck1D, self).__init__(lambda x, t: theta*(mu-x), D, **kwargs)
 
     def __str__(self):
