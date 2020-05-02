@@ -15,7 +15,10 @@ class FiniteDifferences:
 
     def __init__(self, X):
         self.grid = X
-        self.N = len(X)
+
+    @property
+    def N(self):
+        return len(self.grid)
 
 class CenteredFD(FiniteDifferences):
     """ Centered finite-difference methods (1D only) """
@@ -28,8 +31,31 @@ class RegularCenteredFD(CenteredFD):
     """ Centered finite-difference methods on a regular grid (1D only) """
 
     def __init__(self, A, B, Np):
-        super(self.__class__, self).__init__(np.linspace(A, B, num=Np))
-        self.dx = np.abs(A-B)/(Np-1)
+        CenteredFD.__init__(self, np.linspace(A, B, num=Np))
+
+    @property
+    def dx(self):
+        return np.abs(self.A-self.B)/(self.N-1)
+
+    @dx.setter
+    def dx(self, dxnew):
+        self.grid = np.linspace(self.A, self.B, num=1+int(np.abs(self.A-self.B)/dxnew))
+
+    @property
+    def A(self):
+        return self.grid[0]
+
+    @A.setter
+    def A(self, Anew):
+        self.grid = np.linspace(Anew, self.B, num=self.N)
+
+    @property
+    def B(self):
+        return self.grid[-1]
+
+    @B.setter
+    def B(self, Bnew):
+        self.grid = np.linspace(self.A, Bnew, num=self.N)
 
     def grad(self, Y):
         """ Gradient of a scalar field Y evaluated with a centered finite difference scheme """
@@ -52,8 +78,31 @@ class RegularForwardFD(FiniteDifferences):
     """ Forward finite-difference methods on a regular grid (1D only) """
 
     def __init__(self, A, B, Np):
-        super(self.__class__, self).__init__(np.linspace(A, B, num=Np))
-        self.dx = np.abs(A-B)/(Np-1)
+        FiniteDifferences.__init__(self, np.linspace(A, B, num=Np))
+
+    @property
+    def dx(self):
+        return np.abs(self.A-self.B)/(self.N-1)
+
+    @dx.setter
+    def dx(self, dxnew):
+        self.grid = np.linspace(self.A, self.B, num=1+int(np.abs(self.A-self.B)/dxnew))
+
+    @property
+    def A(self):
+        return self.grid[0]
+
+    @A.setter
+    def A(self, Anew):
+        self.grid = np.linspace(Anew, self.B, num=self.N)
+
+    @property
+    def B(self):
+        return self.grid[-1]
+
+    @B.setter
+    def B(self, Bnew):
+        self.grid = np.linspace(self.A, Bnew, num=self.N)
 
     def grad(self, Y):
         return (Y[1:]-Y[:-1])/(self.dx)
@@ -73,12 +122,12 @@ class BoundaryCondition:
 class DirichletBC(BoundaryCondition):
     """ Dirichlet Boundary Conditions (1D only for now) """
     def __init__(self, Y0):
-        super(self.__class__, self).__init__(lambda Y, X, t: Y0)
+        BoundaryCondition.__init__(self, lambda Y, X, t: Y0)
 
 class NeumannBC(BoundaryCondition):
     """ Neumann Boundary Conditions (1D only for now) """
     def __init__(self, DY0):
-        super(self.__class__, self).__init__(lambda Y, X, t: Y[(1, -2), ]-(X[1:]-X[:-1])[(0, -1), ]*DY0)
+        BoundaryCondition.__init__(self, lambda Y, X, t: Y[(1, -2), ]-(X[1:]-X[:-1])[(0, -1), ]*DY0)
 
 # class AbsorbingBC(DirichletBC):
 #     def __init__(self):
