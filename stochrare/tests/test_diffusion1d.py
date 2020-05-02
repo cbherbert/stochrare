@@ -11,6 +11,32 @@ class TestDynamics1D(unittest.TestCase):
         dw = np.random.normal()
         self.assertEqual(wiener.update(0, 0, dw=dw), dw)
 
+    def test_integrate_sde(self):
+        oup = diffusion1d.OrnsteinUhlenbeck1D(0, 1, 1)
+        dt = 0.01
+        t = np.linspace(0, 1, 100, dtype=np.float32)
+        x = np.full(100, 0, dtype=np.float32)
+        w = np.random.normal(0, np.sqrt(dt), size=99)
+        traj_euler_oup = oup.integrate_sde(x, t, w, method='euler', dt=0.01)
+        traj_euler_const = diffusion1d.ConstantDiffusionProcess1D.integrate_sde(oup, x, t, w,
+                                                                                method='euler',
+                                                                                dt=0.01)
+        traj_euler_diff = diffusion1d.DiffusionProcess1D.integrate_sde(oup, x, t, w, method='euler',
+                                                                       dt=0.01)
+        np.testing.assert_allclose(traj_euler_oup, traj_euler_const)
+        np.testing.assert_allclose(traj_euler_oup, traj_euler_diff)
+        traj_milstein_oup = oup.integrate_sde(x, t, w, method='milstein', dt=0.01)
+        traj_milstein_const = diffusion1d.ConstantDiffusionProcess1D.integrate_sde(oup, x, t, w,
+                                                                                   method='milstein',
+                                                                                   dt=0.01)
+        traj_milstein_diff = diffusion1d.DiffusionProcess1D.integrate_sde(oup, x, t, w,
+                                                                          method='milstein', dt=0.01)
+        np.testing.assert_allclose(traj_milstein_oup, traj_milstein_const)
+        np.testing.assert_allclose(traj_milstein_oup, traj_milstein_diff)
+        traj_gillespie_oup = oup.integrate_sde(x, t, w, method='gillespie', dt=0.01)
+        np.testing.assert_allclose(traj_gillespie_oup, traj_milstein_oup)
+        self.assertRaises(NotImplementedError, oup.integrate_sde, x, t, w, method='rk', dt=0.01)
+
     def test_trajectory(self):
         dt_brownian = 1e-5
         model = diffusion1d.DiffusionProcess1D(lambda x, t: 2*x, lambda x, t: x, deterministic=True)
@@ -19,8 +45,11 @@ class TestDynamics1D(unittest.TestCase):
         traj_exact = np.exp(1.5*brownian_path[0]+brownian_path[1])
         traj1 = model.trajectory(1., 0., T=0.1, dt=dt_brownian, brownian_path=brownian_path)
         traj2 = model.trajectory(1., 0., T=0.1, dt=dt_brownian, deltat=dt_brownian)
+        traj3 = model.trajectory(1., 0., T=0.1, dt=dt_brownian, brownian_path=brownian_path,
+                                 method='milstein')
         np.testing.assert_allclose(traj1[1], traj2[1], rtol=1e-5)
         np.testing.assert_allclose(traj1[1], traj_exact, rtol=1e-2)
+        np.testing.assert_allclose(traj3[1], traj_exact, rtol=1e-5)
 
     def test_instantoneq(self):
         oup = diffusion1d.OrnsteinUhlenbeck1D(0, 1, 1)
