@@ -58,9 +58,25 @@ class DiffusionProcess:
 
         vecfield and sigma are functions of two variables (x,t).
         """
-        self.drift = vecfield
-        self.diffusion = sigma
+        self._drift = vecfield
+        self._diffusion = sigma
         self.__deterministic__ = kwargs.get('deterministic', False)
+
+    @property
+    def drift(self):
+        return self._drift
+
+    @drift.setter
+    def drift(self, driftnew):
+        self._drift = driftnew
+
+    @property
+    def diffusion(self):
+        return self._diffusion
+
+    @diffusion.setter
+    def diffusion(self, diffusionnew):
+        self._diffusion = diffusionnew
 
     def update(self, xn, tn, **kwargs):
         r"""
@@ -268,8 +284,25 @@ class ConstantDiffusionProcess(DiffusionProcess):
         """
         DiffusionProcess.__init__(self, vecfield, (lambda x, t: np.sqrt(2*Damp)*np.eye(dim)),
                                   **kwargs)
-        self.D0 = Damp
+        self._D0 = Damp
         self.dimension = dim
+
+    @property
+    def diffusion(self):
+        return self._diffusion
+
+    @diffusion.setter
+    def diffusion(self, diffusionnew):
+        raise TypeError("ConstantDiffusionProcess objects do not allow setting the diffusion attribute")
+
+    @property
+    def D0(self):
+        return self._D0
+
+    @D0.setter
+    def D0(self, D0new):
+        self._D0 = D0new
+        self._diffusion = lambda x, t: np.sqrt(2*D0new)*np.eye(self.dimension)
 
     def update(self, xn, tn, **kwargs):
         r"""
@@ -348,8 +381,36 @@ class OrnsteinUhlenbeck(ConstantDiffusionProcess):
     """
     def __init__(self, mu, theta, D, dim, **kwargs):
         super(OrnsteinUhlenbeck, self).__init__(lambda x, t: theta*(mu-x), D, dim, **kwargs)
-        self.theta = theta
-        self.mu = mu
+        self._theta = theta
+        self._mu = mu
+
+    @property
+    def drift(self):
+        return self._drift
+
+    @drift.setter
+    def drift(self, driftnew):
+        raise TypeError("OrnsteinUhlenbeck objects do not allow setting the drift attribute")
+
+    @property
+    def mu(self):
+        return self._mu
+
+    @mu.setter
+    def mu(self, munew):
+        self._mu = munew
+        theta = self.theta
+        self._drift = lambda x, t: theta*(munew-x)
+
+    @property
+    def theta(self):
+        return self._theta
+
+    @theta.setter
+    def theta(self, thetanew):
+        self._theta = thetanew
+        mu = self.mu
+        self._drift = lambda x, t: thetanew*(mu-x)
 
     def potential(self, x):
         r"""
