@@ -10,6 +10,7 @@ from nbconvert.preprocessors import ExecutePreprocessor
 import numpy as np
 from numba import jit, jitclass, float32
 from stochrare.dynamics.diffusion1d import DiffusionProcess1D, ConstantDiffusionProcess1D, OrnsteinUhlenbeck1D
+from stochrare.dynamics.diffusion import OrnsteinUhlenbeck
 
 def runnb(notebook_filename):
     ep = ExecutePreprocessor(timeout=3600, kernel_name='python3')
@@ -205,6 +206,11 @@ def benchmark_trajectory(nb=100):
     duration = timeit.timeit(lambda: oup_gillespie.trajectory(0, 0, dt=0.01, method='gillespie'),
                              number=nb)*1000
     print(f"Solving SDE (Gillespie)... {nb} realizations (1000 samples) in {duration:.3f}ms")
+    oup2d = OrnsteinUhlenbeck(0, 1, 0.1, 2)
+    oup2d.trajectory(np.array([0, 0]), 0, dt=0.01)
+    duration = timeit.timeit(lambda: oup2d.trajectory(np.array([0, 0]), 0, dt=0.01), number=nb)*1000
+    print(f"Solving 2D SDE (DiffusionProcess)... {nb} realizations (1000 samples) in {duration:.3f}ms")
+
 
 def benchmark_trajectory_vanilla(nb=100):
     """
