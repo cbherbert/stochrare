@@ -160,15 +160,32 @@ class DiffusionProcess:
         time = kwargs.get('T', 10.0)   # Total integration time
         if dt < 0:
             time = -time
+        precision = kwargs.pop('precision', np.float32)
+        dim = len(x0)
         num = int(time/dt)+1
-        tarray = np.linspace(t0, t0+time, num=num)
-        for t in tarray[1:]:
-            x += [self.update(x[-1], t, dt=dt)]
-        x = np.array(x)
+        tarray = np.linspace(t0, t0+time, num=num, dtype=precision)
+        x = np.full((num, dim), x0, dtype=precision)
+        if 'brownian_path' in kwargs:
+            tw, w = kwargs.pop('brownian_path')
+            dw = np.diff(w, axis=0)
+        else:
+            dw = np.random.normal(0, np.sqrt(dt), size=(num-1, dim))
+        x = self._euler_maruyama(x, tarray, dw, dt, self.drift, self.diffusion)
         if kwargs.get('finite', False):
             tarray = tarray[np.isfinite(x)]
             x = x[np.isfinite(x)]
         return tarray, x
+
+    @staticmethod
+    def _euler_maruyama(x, t, w, dt, drift, diffusion):
+        index = 1
+        for wn in w:
+            xn = x[index-1]
+            tn = t[index-1]
+            x[index] = xn + drift(xn, tn)*dt + diffusion(xn, tn)@wn
+            index = index + 1
+        return x
+
 
     @pseudorand
     def trajectory_generator(self, x0, t0, nsteps, **kwargs):
