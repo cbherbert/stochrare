@@ -23,7 +23,6 @@ class TestDynamics(unittest.TestCase):
         oup.mu = 1
         np.testing.assert_allclose(oup.drift(np.array([1, 1]), 0), np.array([0, 0]))
 
-
     def test_wiener_potential(self):
         data = np.ones(10)
         np.testing.assert_array_equal(diffusion.Wiener(1).potential(data), np.zeros_like(data))
@@ -35,6 +34,22 @@ class TestDynamics(unittest.TestCase):
         wiener = diffusion.Wiener(dimension, D=0.5)
         dw = np.random.normal(size=dimension)
         np.testing.assert_array_equal(wiener.update(np.zeros(dimension), 0, dw=dw), dw)
+
+    def test_trajectory(self):
+        dt_brownian = 1e-5
+        model = diffusion.DiffusionProcess(lambda x, t: 2*x,
+                                           lambda x, t: np.array([[x[0], 0], [0, x[1]]]),
+                                           deterministic=True)
+        wiener = diffusion.Wiener(2, D=0.5, deterministic=True)
+        brownian_path = wiener.trajectory(np.array([0., 0.]), 0., T=0.1, dt=dt_brownian)
+        traj_exact1 = np.exp(1.5*brownian_path[0]+brownian_path[1][:, 0])
+        traj_exact2 = np.exp(1.5*brownian_path[0]+brownian_path[1][:, 1])
+        traj = model.trajectory(np.array([1., 1.]), 0., T=0.1, dt=dt_brownian,
+                                brownian_path=brownian_path)
+        np.testing.assert_allclose(traj[1][:, 0], traj_exact1, rtol=1e-2)
+        np.testing.assert_allclose(traj[1][:, 1], traj_exact2, rtol=1e-2)
+
+
 
 if __name__ == "__main__":
     unittest.main()
