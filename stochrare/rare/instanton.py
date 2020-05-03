@@ -87,8 +87,14 @@ class InstantonSolver:
     """
     def __init__(self, model):
         self.model = model
-        self.instanton_eq = model._instantoneq
-        self.instanton_jac = model._instantoneq_jac
+
+    @property
+    def instanton_eq(self):
+        return self.model._instantoneq
+
+    @property
+    def instanton_jac(self):
+        return self.model._instantoneq_jac
 
     @staticmethod
     def filt_fun(t, x, p, threshold=100):
