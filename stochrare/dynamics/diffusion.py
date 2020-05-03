@@ -431,6 +431,11 @@ class OrnsteinUhlenbeck(ConstantDiffusionProcess):
         mu = self.mu
         self._drift = jit(lambda x, t: thetanew*(mu-x), nopython=True)
 
+    def __str__(self):
+        label = f"{self.dimension}D Ornstein-Uhlenbeck process"
+        eq = "dx_t = theta(mu-x_t)dt + sqrt(2D) dW_t"
+        return f"{label}: {eq}, with theta={self.theta}, mu={self.mu} and D={self.D0}."
+
     def potential(self, x):
         r"""
         Compute the potential from which the force derives.
