@@ -30,6 +30,7 @@ These classes form a hierarchy deriving from the base class, `DiffusionProcess`.
 
 """
 import numpy as np
+from numba import jit
 from ..utils import pseudorand
 
 class DiffusionProcess:
@@ -58,8 +59,8 @@ class DiffusionProcess:
 
         vecfield and sigma are functions of two variables (x,t).
         """
-        self._drift = vecfield
-        self._diffusion = sigma
+        self._drift = jit(vecfield, nopython=True)
+        self._diffusion = jit(sigma, nopython=True)
         self.__deterministic__ = kwargs.get('deterministic', False)
 
     @property
@@ -68,7 +69,7 @@ class DiffusionProcess:
 
     @drift.setter
     def drift(self, driftnew):
-        self._drift = driftnew
+        self._drift = jit(driftnew, nopython=True)
 
     @property
     def diffusion(self):
@@ -76,7 +77,7 @@ class DiffusionProcess:
 
     @diffusion.setter
     def diffusion(self, diffusionnew):
-        self._diffusion = diffusionnew
+        self._diffusion = jit(diffusionnew, nopython=True)
 
     def update(self, xn, tn, **kwargs):
         r"""
@@ -177,13 +178,13 @@ class DiffusionProcess:
         return tarray, x
 
     @staticmethod
+    @jit(nopython=True)
     def _euler_maruyama(x, t, w, dt, drift, diffusion):
-        index = 1
-        for wn in w:
+        for index in range(1, len(w)+1):
+            wn = w[index-1]
             xn = x[index-1]
             tn = t[index-1]
-            x[index] = xn + drift(xn, tn)*dt + diffusion(xn, tn)@wn
-            index = index + 1
+            x[index] = xn + drift(xn, tn)*dt + np.dot(diffusion(xn, tn), wn)
         return x
 
 
@@ -319,7 +320,8 @@ class ConstantDiffusionProcess(DiffusionProcess):
     @D0.setter
     def D0(self, D0new):
         self._D0 = D0new
-        self._diffusion = lambda x, t: np.sqrt(2*D0new)*np.eye(self.dimension)
+        dim = self.dimension
+        self._diffusion = jit(lambda x, t: np.sqrt(2*D0new)*np.eye(dim), nopython=True)
 
     def update(self, xn, tn, **kwargs):
         r"""
@@ -417,7 +419,7 @@ class OrnsteinUhlenbeck(ConstantDiffusionProcess):
     def mu(self, munew):
         self._mu = munew
         theta = self.theta
-        self._drift = lambda x, t: theta*(munew-x)
+        self._drift = jit(lambda x, t: theta*(munew-x), nopython=True)
 
     @property
     def theta(self):
@@ -427,7 +429,7 @@ class OrnsteinUhlenbeck(ConstantDiffusionProcess):
     def theta(self, thetanew):
         self._theta = thetanew
         mu = self.mu
-        self._drift = lambda x, t: thetanew*(mu-x)
+        self._drift = jit(lambda x, t: thetanew*(mu-x), nopython=True)
 
     def potential(self, x):
         r"""
