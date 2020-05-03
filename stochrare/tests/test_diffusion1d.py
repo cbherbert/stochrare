@@ -7,6 +7,22 @@ import stochrare.dynamics.diffusion1d as diffusion1d
 from stochrare.timeseries import traj_fpt
 
 class TestDynamics1D(unittest.TestCase):
+
+    def test_properties(self):
+        oup = diffusion1d.OrnsteinUhlenbeck1D(0, 1, 1)
+        self.assertEqual(oup.D0, 1)
+        self.assertEqual(oup.mu, 0)
+        self.assertEqual(oup.theta, 1)
+        np.testing.assert_allclose(oup.diffusion(1, 0), np.sqrt(2))
+        oup.D0 = 0.5
+        self.assertEqual(oup.diffusion(1, 0), 1)
+        self.assertEqual(oup.drift(1, 0), -1)
+        oup.theta = 2
+        self.assertEqual(oup.drift(1, 0), -2)
+        oup.mu = 1
+        self.assertEqual(oup.drift(1, 0), 0)
+
+
     def test_potential(self):
         x = np.linspace(-1, 1)
         np.testing.assert_allclose(diffusion1d.Wiener1D.potential(x), np.zeros_like(x))

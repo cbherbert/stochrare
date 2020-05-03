@@ -75,9 +75,25 @@ class DiffusionProcess1D:
         """
         F and sigma are functions of two variables (x,t)
         """
-        self.drift = jit(vecfield, nopython=True)
-        self.diffusion = jit(sigma, nopython=True)
+        self._drift = jit(vecfield, nopython=True)
+        self._diffusion = jit(sigma, nopython=True)
         self.__deterministic__ = kwargs.get('deterministic', False)
+
+    @property
+    def drift(self):
+        return self._drift
+
+    @drift.setter
+    def drift(self, driftnew):
+        self._drift = jit(driftnew, nopython=True)
+
+    @property
+    def diffusion(self):
+        return self._diffusion
+
+    @diffusion.setter
+    def diffusion(self, diffusionnew):
+        self._diffusion = jit(diffusionnew, nopython=True)
 
     def potential(self, X, t):
         """
@@ -501,7 +517,24 @@ class ConstantDiffusionProcess1D(DiffusionProcess1D):
         Damp: amplitude of the diffusion term (noise), scalar
         """
         DiffusionProcess1D.__init__(self, vecfield, lambda x, t: np.sqrt(2*Damp), **kwargs)
-        self.D0 = Damp    # We keep this temporarily for backward compatiblity
+        self._D0 = Damp
+
+    @property
+    def diffusion(self):
+        return self._diffusion
+
+    @diffusion.setter
+    def diffusion(self, diffusionnew):
+        raise TypeError("ConstantDiffusionProcess1D objects do not allow setting the diffusion attribute")
+
+    @property
+    def D0(self):
+        return self._D0
+
+    @D0.setter
+    def D0(self, D0new):
+        self._D0 = D0new
+        self._diffusion = jit(lambda x, t: np.sqrt(2*D0new), nopython=True)
 
     def update(self, xn, tn, **kwargs):
         r"""
@@ -795,9 +828,38 @@ class OrnsteinUhlenbeck1D(ConstantDiffusionProcess1D):
     toy model for developing new methods.
     """
     def __init__(self, mu, theta, D, **kwargs):
-        self.mu = mu
-        self.theta = theta
+        self._mu = mu
+        self._theta = theta
         super(OrnsteinUhlenbeck1D, self).__init__(lambda x, t: theta*(mu-x), D, **kwargs)
+
+    @property
+    def drift(self):
+        return self._drift
+
+    @drift.setter
+    def drift(self, driftnew):
+        raise TypeError("OrnsteinUhlenbeck1D objects do not allow setting the drift attribute")
+
+    @property
+    def mu(self):
+        return self._mu
+
+    @mu.setter
+    def mu(self, munew):
+        self._mu = munew
+        theta = self.theta
+        self._drift = jit(lambda x, t: theta*(munew-x), nopython=True)
+
+    @property
+    def theta(self):
+        return self._theta
+
+    @theta.setter
+    def theta(self, thetanew):
+        self._theta = thetanew
+        mu = self.mu
+        self._drift = jit(lambda x, t: thetanew*(mu-x), nopython=True)
+
 
     def __str__(self):
         label = "1D Ornstein-Uhlenbeck process"
