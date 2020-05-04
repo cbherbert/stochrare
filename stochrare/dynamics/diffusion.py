@@ -142,7 +142,7 @@ class DiffusionProcess:
         Keyword Arguments
         -----------------
         dt: float
-            The time step, forwarded to the :meth:`update` routine
+            The time step
             (default 0.1, unless overridden by a subclass).
         T: float
             The time duration of the trajectory (default 10).
@@ -159,8 +159,6 @@ class DiffusionProcess:
         x = [x0]
         dt = kwargs.get('dt', self.default_dt) # Time step
         time = kwargs.get('T', 10.0)   # Total integration time
-        if dt < 0:
-            time = -time
         precision = kwargs.pop('precision', np.float32)
         dim = len(x0)
         num = int(time/dt)+1
@@ -222,6 +220,7 @@ class DiffusionProcess:
         t = t0
         dt = kwargs.get('dt', self.default_dt) # Time step
         obs = kwargs.get('observable', lambda x, t: x)
+        yield t0, obs(x0, t0)
         for _ in range(nsteps):
             t = t + dt
             x = self.update(x, t, dt=dt)
