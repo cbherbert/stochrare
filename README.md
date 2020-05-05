@@ -28,13 +28,32 @@ Until now the code has been mostly developed and tested in the first context, bu
 
 The package may also contain code which could be of interest to study deterministic dynamical systems, although this is not the primary goal.
 
+## Installation
+
+The easiest way to install stochrare is from the Python Package Index, using the Python Package Installer
+```
+pip install stochrare
+```
+
+If you intend to edit the code, you should install stochrare in development mode.
+```
+git clone https://github.com/cbherbert/stochrare
+cd stochrare
+pip install -e .
+```
+
+You can run the unit tests from the root of the repository:
+```
+make tests
+```
+
 ## Documentation
 
-Documentation in the *doc* directory can be compiled in various formats.
+Documentation is available online at https://stochrare.readthedocs.io/en/latest or in your local copy of the repository, in the *doc* directory, where it can be compiled in various formats (run `make help` to see the list).
 
-In the *demo* directory, some Jupyter notebooks illustrate the basic features of the package. 
-More should be added soon, in particular for metastability or loss of stability problem and noise-induced transitions.
-These notebooks will include references to the relevant litterature.
+The documentation describes the package API, and provides a few examples of Jupyter notebooks illustrating the basic features of the package. 
+You can run these notebooks on your local machine (requires a running Jupyter install), or online on [Binder](https://mybinder.org/v2/gh/cbherbert/stochrare/master?filepath=doc%2Fnotebooks).
+We should expand these tutorials as time goes on.
 
 ## Citation
 
