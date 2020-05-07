@@ -53,6 +53,7 @@ class TestDynamics(unittest.TestCase):
                 model = diffusion.DiffusionProcess(
                     lambda x, t: 2*x,
                     lambda x, t: np.identity(dim),
+                    dim,
                     deterministic=True,
                 )
                 model.integrate_sde(x, tarray, dw, dt=dt, method="euler")
@@ -69,7 +70,8 @@ class TestDynamics(unittest.TestCase):
     def test_integrate_sde_wrong_method(self):
         model = diffusion.DiffusionProcess(
                     lambda x, t: 2*x,
-                    lambda x, t: np.identity(dim),
+                    lambda x, t: np.identity(2),
+                    2,
                     deterministic=True,
                 )
         with self.assertRaises(NotImplementedError):
