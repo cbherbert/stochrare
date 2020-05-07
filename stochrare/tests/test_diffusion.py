@@ -79,7 +79,7 @@ class TestDynamics(unittest.TestCase):
     def test_trajectory(self):
         dt_brownian = 1e-5
         diff = lambda x, t: np.array([[x[0], 0], [0, x[1]]], dtype=np.float32)
-        model = diffusion.DiffusionProcess(lambda x, t: 2*x, diff, deterministic=True)
+        model = diffusion.DiffusionProcess(lambda x, t: 2*x, diff, 2, deterministic=True)
         brownian_path = self.wiener.trajectory(np.array([0., 0.]), 0., T=0.1, dt=dt_brownian)
         traj_exact1 = np.exp(1.5*brownian_path[0]+brownian_path[1][:, 0])
         traj_exact2 = np.exp(1.5*brownian_path[0]+brownian_path[1][:, 1])
