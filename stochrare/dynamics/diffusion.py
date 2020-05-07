@@ -48,19 +48,23 @@ class DiffusionProcess:
         The vector field :math:`F(x, t)`.
     sigma : function with two arguments
         The diffusion coefficient :math:`\sigma(x, t)`.
+    dimension : int
+        The dimension of the process.
     """
 
     default_dt = 0.1
 
-    def __init__(self, vecfield, sigma, **kwargs):
+    def __init__(self, vecfield, sigma, dimension, **kwargs):
         """
         vecfield: vector field
         sigma: diffusion coefficient (noise)
+        dimension: int
 
         vecfield and sigma are functions of two variables (x,t).
         """
         self._drift = jit(vecfield, nopython=True)
         self._diffusion = jit(sigma, nopython=True)
+        self.dimension = dimension
         self.__deterministic__ = kwargs.get('deterministic', False)
 
     @property
@@ -346,9 +350,8 @@ class ConstantDiffusionProcess(DiffusionProcess):
         In this class of stochastic processes, the diffusion matrix is proportional to identity.
         """
         DiffusionProcess.__init__(self, vecfield, (lambda x, t: np.sqrt(2*Damp)*np.eye(dim)),
-                                  **kwargs)
+                                  dim, **kwargs)
         self._D0 = Damp
-        self.dimension = dim
 
     @property
     def diffusion(self):
