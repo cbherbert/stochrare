@@ -207,7 +207,7 @@ class DiffusionProcess:
             at these instants.
         """
         x = [x0]
-        dt = kwargs.get('dt', self.default_dt) # Time step
+        dt = kwargs.pop('dt', self.default_dt) # Time step
         time = kwargs.get('T', 10.0)   # Total integration time
         precision = kwargs.pop('precision', np.float32)
         dim = len(x0)
