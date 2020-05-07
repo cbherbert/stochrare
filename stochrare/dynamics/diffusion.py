@@ -127,6 +127,52 @@ class DiffusionProcess:
         dw = kwargs.get('dw', np.random.normal(0.0, np.sqrt(dt), dim))
         return xn + self.drift(xn, tn)*dt+self.diffusion(xn, tn)@dw
 
+
+    def integrate_sde(self, x, t, w, **kwargs):
+        r"""
+        Dispatch SDE integration for different numerical schemes
+
+        Parameters
+        ----------
+        x: ndarray
+            The (empty) position array
+        t: ndarray
+            The sample time array
+        w: ndarray
+            The brownian motion realization used for integration
+
+        Keyword Arguments
+        -----------------
+        method: str
+            The numerical scheme: 'euler' (default) or 'milstein'
+        dt: float
+            The time step
+
+        Notes
+        -----
+        We define this method rather than putting the code in the `trajectory` method to make
+        it easier to implement numerical schemes valid only for specific classes of processes.
+        Then it suffices to implement the scheme and subclass this method to add the corresponding
+        'if' statement, without rewriting the entire `trajectory` method.
+
+        The implemented schemes are the following:
+
+        - Euler-Maruyama [1]_ [2]_:
+        :math:`x_{n+1} = x_n + F(x_n, t_n)\Delta t + \sigma(x_n, t_n) \Delta W_n`.
+
+        It is the straightforward generalization to SDEs of the Euler method for ODEs.
+
+        The Euler-Maruyama method has strong order 0.5 and weak order 1.
+        """
+        method = kwargs.get('method', 'euler')
+        dt = kwargs.get('dt', self.default_dt)
+        if method in ('euler', 'euler-maruyama', 'em'):
+            x = self._euler_maruyama(x, t, w, dt, self.drift, self.diffusion)
+        else:
+            raise NotImplementedError('SDE integration error: Numerical scheme not implemented')
+        return x
+
+
     @pseudorand
     def trajectory(self, x0, t0, **kwargs):
         r"""
