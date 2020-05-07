@@ -215,7 +215,7 @@ class DiffusionProcess:
             dw = np.diff(w, axis=0)
         else:
             dw = np.random.normal(0, np.sqrt(dt), size=(num-1, dim))
-        x = self._euler_maruyama(x, tarray, dw, dt, self.drift, self.diffusion)
+        x = self.integrate_sde(x, tarray, dw, dt=dt, **kwargs)
         if kwargs.get('finite', False):
             tarray = tarray[np.isfinite(x)]
             x = x[np.isfinite(x)]
