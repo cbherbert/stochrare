@@ -30,11 +30,14 @@ class TestDynamics(unittest.TestCase):
         self.oup.theta = 1
         self.oup.mu = 0
 
-    def test_wiener_potential(self):
-        data = np.ones(10)
-        np.testing.assert_array_equal(diffusion.Wiener.potential(data), np.zeros_like(data))
-        data = np.ones((10, 10))
-        np.testing.assert_array_equal(self.wiener.potential(data), np.zeros_like(data))
+    def test_potential(self):
+        x = np.linspace(-1, 1)
+        np.testing.assert_array_equal(diffusion.Wiener.potential(x), np.zeros_like(x))
+        oup = diffusion.OrnsteinUhlenbeck(0, 1, 1, 1)
+        np.testing.assert_allclose(oup.potential(x), 0.5*x**2)
+        np.testing.assert_allclose(diffusion.DiffusionProcess.potential(oup, x, 0), 0.5*x**2)
+        x = np.ones((10, 10))
+        np.testing.assert_array_equal(self.wiener.potential(x), np.zeros(len(x)))
 
     def test_update(self):
         for wienerD in (self.wiener, self.wiener1):

@@ -30,6 +30,8 @@ These classes form a hierarchy deriving from the base class, `DiffusionProcess`.
 
 """
 import numpy as np
+import scipy.integrate as integrate
+from scipy.interpolate import interp1d
 from numba import jit
 from ..utils import pseudorand
 
@@ -42,11 +44,11 @@ class DiffusionProcess:
     and :math:`W` the :math:`M`-dimensional Wiener process.
     The diffusion matrix sigma has size NxM.
 
-    Parameters
+    Attributes
     ----------
-    vecfield : function with two arguments
+    drift : function with two arguments
         The vector field :math:`F(x, t)`.
-    sigma : function with two arguments
+    diffusion : function with two arguments
         The diffusion coefficient :math:`\sigma(x, t)`.
     dimension : int
         The dimension of the process.
@@ -82,6 +84,31 @@ class DiffusionProcess:
     @diffusion.setter
     def diffusion(self, diffusionnew):
         self._diffusion = jit(diffusionnew, nopython=True)
+
+    def potential(self, X, t):
+        """
+        Compute the potential from which the force derives.
+
+        Parameters
+        ----------
+        X : ndarray (1d)
+            The points where we want to compute the potential.
+
+        Returns
+        -------
+        V : ndarray (1d)
+            The potential from which the force derives, at the given points.
+
+        Notes
+        -----
+        We integrate the vector field to obtain the value of the underlying potential
+        at the input points.
+        Caveat: This works only for 1D dynamics.
+        """
+        if self.dimension != 1:
+            raise ValueError('Generic dynamics in arbitrary dimensions are not gradient dynamics!')
+        fun = interp1d(X, -1*self.drift(X, t), fill_value='extrapolate')
+        return np.array([integrate.quad(fun, 0.0, x)[0] for x in X])
 
     def update(self, xn, tn, **kwargs):
         r"""
@@ -484,19 +511,19 @@ class OrnsteinUhlenbeck(ConstantDiffusionProcess):
         eq = "dx_t = theta(mu-x_t)dt + sqrt(2D) dW_t"
         return f"{label}: {eq}, with theta={self.theta}, mu={self.mu} and D={self.D0}."
 
-    def potential(self, x):
+    def potential(self, X):
         r"""
         Compute the potential from which the force derives.
 
         Parameters
         ----------
-        x : ndarray
-            The point where we want to compute the potential
+        X : ndarray, shape (npts, self.dimension)
+            The points where we want to compute the potential
 
         Returns
         -------
-        V : float
-            The potential from which the force derives, at the given point.
+        V : float, shape (npts, )
+            The potential from which the force derives, at the given points.
 
         Notes
         -----
@@ -505,8 +532,7 @@ class OrnsteinUhlenbeck(ConstantDiffusionProcess):
         :math:`dx_t = -\nabla V(x_t)dt + \sqrt{2D} dW_t`, with
         :math:`V(x) = \theta(\mu-x)^2/2`.
         """
-        y = self.mu-x
-        return self.theta*y.dot(y)/2
+        return np.array([self.theta*np.dot(self.mu-y, self.mu-y)/2 for y in X])
 
 class Wiener(OrnsteinUhlenbeck):
     r"""
@@ -530,19 +556,19 @@ class Wiener(OrnsteinUhlenbeck):
         super(Wiener, self).__init__(0, 0, D, dim, **kwargs)
 
     @classmethod
-    def potential(cls, x):
+    def potential(cls, X):
         r"""
         Compute the potential from which the force derives.
 
         Parameters
         ----------
-        x : ndarray
-            The point where we want to compute the potential.
+        X : ndarray, shape (npts, self.dimension)
+            The points where we want to compute the potential.
 
         Returns
         -------
-        V : float
-            The potential from which the force derives, at the given point.
+        V : float, shape (npts, )
+            The potential from which the force derives, at the given points.
 
         Notes
         -----
@@ -550,4 +576,4 @@ class Wiener(OrnsteinUhlenbeck):
         It is useless (and potentially source of errors) to call the general potential routine,
         so we just return zero directly.
         """
-        return np.zeros_like(x)
+        return np.zeros(len(X))
