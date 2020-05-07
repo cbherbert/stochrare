@@ -127,6 +127,37 @@ class DiffusionProcess:
         dw = kwargs.get('dw', np.random.normal(0.0, np.sqrt(dt), dim))
         return xn + self.drift(xn, tn)*dt+self.diffusion(xn, tn)@dw
 
+
+    @staticmethod
+    def _integrate_brownian_path(dw, num, dim, ratio):
+        """
+        Return piece-wise integrated brownian path.
+
+        Parameters
+        ----------
+        dw: ndarray
+          Brownian path.
+        num: int
+          Number of SDE timesteps.
+        dim: int
+          Brownian path dimension.
+        ratio: int
+          Ratio between brownian path timestep and SDE timestep.
+
+        Returns
+        -------
+        integrated_dw: ndarray
+          Piecewise integrated brownian path.
+        """
+
+        expected_shape = ((num-1)*ratio, dim)
+        if not dw.shape == expected_shape:
+            raise ValueError("Brownian path array has dimension {}, expected {}".format(dw.shape, expected_shape))
+        integrated_dw = np.zeros((num-1, dim), dtype=dw.dtype)
+        for coord in range(dim):
+            integrated_dw[:,coord] = dw[:,coord].reshape((num-1, ratio)).sum(axis=1)
+        return integrated_dw
+
     @pseudorand
     def trajectory(self, x0, t0, **kwargs):
         r"""
@@ -159,6 +190,8 @@ class DiffusionProcess:
         x = [x0]
         dt = kwargs.get('dt', self.default_dt) # Time step
         time = kwargs.get('T', 10.0)   # Total integration time
+        if dt < 0:
+            time = -time
         precision = kwargs.pop('precision', np.float32)
         dim = len(x0)
         num = int(time/dt)+1
@@ -167,8 +200,14 @@ class DiffusionProcess:
         if 'brownian_path' in kwargs:
             tw, w = kwargs.pop('brownian_path')
             dw = np.diff(w, axis=0)
+            deltat = tw[1]-tw[0]
+            ratio = int(np.rint(dt/deltat)) # Both int and rint needed here ?
+            dw = dw[:((num-1)*ratio)] # Trim noise vector if sequence w too long
         else:
+            deltat = kwargs.pop('deltat', dt)
+            ratio = int(np.rint(dt/deltat))
             dw = np.random.normal(0, np.sqrt(dt), size=(num-1, dim))
+        dw = self._integrate_brownian_path(dw, num, dim, ratio)
         x = self._euler_maruyama(x, tarray, dw, dt, self.drift, self.diffusion)
         if kwargs.get('finite', False):
             tarray = tarray[np.isfinite(x)]

@@ -39,6 +39,20 @@ class TestDynamics(unittest.TestCase):
         x = np.zeros(self.wiener.dimension)
         np.testing.assert_array_equal(self.wiener.update(x, 0, dw=dw), dw)
 
+    def test_integrate_brownian_path(self):
+        num = 4
+        dim = 2
+        ratio = 3
+
+        dw_wrong_shape = np.array([range(1,11), range(11,1,-1)]).transpose()
+        with self.assertRaises(ValueError):
+            diffusion.DiffusionProcess._integrate_brownian_path(dw_wrong_shape, num, dim, ratio)
+
+        dw_correct_shape = np.array([range(1,10), range(10,1,-1)]).transpose()
+        integrated_dw = diffusion.DiffusionProcess._integrate_brownian_path(dw_correct_shape, num, dim, ratio)
+        solution_array = np.array([[6,27],[15,18], [24,9]])
+        np.testing.assert_array_equal(integrated_dw, solution_array)
+
     def test_trajectory(self):
         dt_brownian = 1e-5
         diff = lambda x, t: np.array([[x[0], 0], [0, x[1]]], dtype=np.float32)
