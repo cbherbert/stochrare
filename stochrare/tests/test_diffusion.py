@@ -4,6 +4,7 @@ Unit tests for the diffusion module.
 import unittest
 import numpy as np
 import stochrare.dynamics.diffusion as diffusion
+from unittest.mock import patch
 
 class TestDynamics(unittest.TestCase):
     def setUp(self):
@@ -38,6 +39,42 @@ class TestDynamics(unittest.TestCase):
         dw = np.random.normal(size=self.wiener.dimension)
         x = np.zeros(self.wiener.dimension)
         np.testing.assert_array_equal(self.wiener.update(x, 0, dw=dw), dw)
+
+    @patch.object(diffusion.DiffusionProcess, "_euler_maruyama")
+    def test_integrate_sde(self, mock_DiffusionProcess):
+        x0=0;time=10;dt=0.1;
+        num = int(time/dt)+1
+        tarray = np.linspace(0, time, num=num)
+
+        for dim in range(1,5):
+            x = np.full((num, dim), x0)
+            dw = np.random.normal(0, np.sqrt(dt), size=(num-1, dim))
+            with self.subTest(dim=dim):
+                model = diffusion.DiffusionProcess(
+                    lambda x, t: 2*x,
+                    lambda x, t: np.identity(dim),
+                    deterministic=True,
+                )
+                model.integrate_sde(x, tarray, dw, dt=dt, method="euler")
+                model._euler_maruyama.assert_called_with(x,
+                                                         tarray,
+                                                         dw,
+                                                         dt,
+                                                         model.drift,
+                                                         model.diffusion
+                )
+        self.assertEqual(model._euler_maruyama.call_count, 4)
+
+
+    def test_integrate_sde_wrong_method(self):
+        model = diffusion.DiffusionProcess(
+                    lambda x, t: 2*x,
+                    lambda x, t: np.identity(dim),
+                    deterministic=True,
+                )
+        with self.assertRaises(NotImplementedError):
+            model.integrate_sde(0, 0, 0, method="fancy method")
+
 
     def test_trajectory(self):
         dt_brownian = 1e-5
