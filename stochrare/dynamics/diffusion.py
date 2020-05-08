@@ -30,6 +30,8 @@ These classes form a hierarchy deriving from the base class, `DiffusionProcess`.
 
 """
 import numpy as np
+import scipy.integrate as integrate
+from scipy.interpolate import interp1d
 from numba import jit
 from ..utils import pseudorand
 
@@ -42,25 +44,29 @@ class DiffusionProcess:
     and :math:`W` the :math:`M`-dimensional Wiener process.
     The diffusion matrix sigma has size NxM.
 
-    Parameters
+    Attributes
     ----------
-    vecfield : function with two arguments
+    drift : function with two arguments
         The vector field :math:`F(x, t)`.
-    sigma : function with two arguments
+    diffusion : function with two arguments
         The diffusion coefficient :math:`\sigma(x, t)`.
+    dimension : int
+        The dimension of the process.
     """
 
     default_dt = 0.1
 
-    def __init__(self, vecfield, sigma, **kwargs):
+    def __init__(self, vecfield, sigma, dimension, **kwargs):
         """
         vecfield: vector field
         sigma: diffusion coefficient (noise)
+        dimension: int
 
         vecfield and sigma are functions of two variables (x,t).
         """
         self._drift = jit(vecfield, nopython=True)
         self._diffusion = jit(sigma, nopython=True)
+        self.dimension = dimension
         self.__deterministic__ = kwargs.get('deterministic', False)
 
     @property
@@ -78,6 +84,31 @@ class DiffusionProcess:
     @diffusion.setter
     def diffusion(self, diffusionnew):
         self._diffusion = jit(diffusionnew, nopython=True)
+
+    def potential(self, X, t):
+        """
+        Compute the potential from which the force derives.
+
+        Parameters
+        ----------
+        X : ndarray (1d)
+            The points where we want to compute the potential.
+
+        Returns
+        -------
+        V : ndarray (1d)
+            The potential from which the force derives, at the given points.
+
+        Notes
+        -----
+        We integrate the vector field to obtain the value of the underlying potential
+        at the input points.
+        Caveat: This works only for 1D dynamics.
+        """
+        if self.dimension != 1:
+            raise ValueError('Generic dynamics in arbitrary dimensions are not gradient dynamics!')
+        fun = interp1d(X, -1*self.drift(X, t), fill_value='extrapolate')
+        return np.array([integrate.quad(fun, 0.0, x)[0] for x in X])
 
     def update(self, xn, tn, **kwargs):
         r"""
@@ -158,6 +189,51 @@ class DiffusionProcess:
             integrated_dw[:,coord] = dw[:,coord].reshape((num-1, ratio)).sum(axis=1)
         return integrated_dw
 
+    def integrate_sde(self, x, t, w, **kwargs):
+        r"""
+        Dispatch SDE integration for different numerical schemes
+
+        Parameters
+        ----------
+        x: ndarray
+            The (empty) position array
+        t: ndarray
+            The sample time array
+        w: ndarray
+            The brownian motion realization used for integration
+
+        Keyword Arguments
+        -----------------
+        method: str
+            The numerical scheme: 'euler' (default) or 'milstein'
+        dt: float
+            The time step
+
+        Notes
+        -----
+        We define this method rather than putting the code in the `trajectory` method to make
+        it easier to implement numerical schemes valid only for specific classes of processes.
+        Then it suffices to implement the scheme and subclass this method to add the corresponding
+        'if' statement, without rewriting the entire `trajectory` method.
+
+        The implemented schemes are the following:
+
+        - Euler-Maruyama [1]_ [2]_:
+        :math:`x_{n+1} = x_n + F(x_n, t_n)\Delta t + \sigma(x_n, t_n) \Delta W_n`.
+
+        It is the straightforward generalization to SDEs of the Euler method for ODEs.
+
+        The Euler-Maruyama method has strong order 0.5 and weak order 1.
+        """
+        method = kwargs.get('method', 'euler')
+        dt = kwargs.get('dt', self.default_dt)
+        if method in ('euler', 'euler-maruyama', 'em'):
+            x = self._euler_maruyama(x, t, w, dt, self.drift, self.diffusion)
+        else:
+            raise NotImplementedError('SDE integration error: Numerical scheme not implemented')
+        return x
+
+
     @pseudorand
     def trajectory(self, x0, t0, **kwargs):
         r"""
@@ -188,7 +264,7 @@ class DiffusionProcess:
             at these instants.
         """
         x = [x0]
-        dt = kwargs.get('dt', self.default_dt) # Time step
+        dt = kwargs.pop('dt', self.default_dt) # Time step
         time = kwargs.get('T', 10.0)   # Total integration time
         if dt < 0:
             raise ValueError("Timestep dt cannot be negative")
@@ -217,7 +293,7 @@ class DiffusionProcess:
             dw = dw.astype(returned_array.dtype)
 
         dw = self._integrate_brownian_path(dw, num, dim, ratio)
-        x = self._euler_maruyama(x, tarray, dw, dt, self.drift, self.diffusion)
+        x = self.integrate_sde(x, tarray, dw, dt=dt, **kwargs)
         if kwargs.get('finite', False):
             tarray = tarray[np.isfinite(x)]
             x = x[np.isfinite(x)]
@@ -348,9 +424,8 @@ class ConstantDiffusionProcess(DiffusionProcess):
         In this class of stochastic processes, the diffusion matrix is proportional to identity.
         """
         DiffusionProcess.__init__(self, vecfield, (lambda x, t: np.sqrt(2*Damp)*np.eye(dim)),
-                                  **kwargs)
+                                  dim, **kwargs)
         self._D0 = Damp
-        self.dimension = dim
 
     @property
     def diffusion(self):
@@ -483,19 +558,19 @@ class OrnsteinUhlenbeck(ConstantDiffusionProcess):
         eq = "dx_t = theta(mu-x_t)dt + sqrt(2D) dW_t"
         return f"{label}: {eq}, with theta={self.theta}, mu={self.mu} and D={self.D0}."
 
-    def potential(self, x):
+    def potential(self, X):
         r"""
         Compute the potential from which the force derives.
 
         Parameters
         ----------
-        x : ndarray
-            The point where we want to compute the potential
+        X : ndarray, shape (npts, self.dimension)
+            The points where we want to compute the potential
 
         Returns
         -------
-        V : float
-            The potential from which the force derives, at the given point.
+        V : float, shape (npts, )
+            The potential from which the force derives, at the given points.
 
         Notes
         -----
@@ -504,8 +579,7 @@ class OrnsteinUhlenbeck(ConstantDiffusionProcess):
         :math:`dx_t = -\nabla V(x_t)dt + \sqrt{2D} dW_t`, with
         :math:`V(x) = \theta(\mu-x)^2/2`.
         """
-        y = self.mu-x
-        return self.theta*y.dot(y)/2
+        return np.array([self.theta*np.dot(self.mu-y, self.mu-y)/2 for y in X])
 
 class Wiener(OrnsteinUhlenbeck):
     r"""
@@ -529,19 +603,19 @@ class Wiener(OrnsteinUhlenbeck):
         super(Wiener, self).__init__(0, 0, D, dim, **kwargs)
 
     @classmethod
-    def potential(cls, x):
+    def potential(cls, X):
         r"""
         Compute the potential from which the force derives.
 
         Parameters
         ----------
-        x : ndarray
-            The point where we want to compute the potential.
+        X : ndarray, shape (npts, self.dimension)
+            The points where we want to compute the potential.
 
         Returns
         -------
-        V : float
-            The potential from which the force derives, at the given point.
+        V : float, shape (npts, )
+            The potential from which the force derives, at the given points.
 
         Notes
         -----
@@ -549,4 +623,4 @@ class Wiener(OrnsteinUhlenbeck):
         It is useless (and potentially source of errors) to call the general potential routine,
         so we just return zero directly.
         """
-        return np.zeros_like(x)
+        return np.zeros(len(X))
