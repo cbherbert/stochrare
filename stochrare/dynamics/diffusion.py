@@ -206,7 +206,7 @@ class DiffusionProcess:
         else:
             deltat = kwargs.pop('deltat', dt)
             ratio = int(np.rint(dt/deltat))
-            dw = np.random.normal(0, np.sqrt(dt), size=(num-1, dim))
+            dw = np.random.normal(0, np.sqrt(deltat), size=(num-1, dim))
         dw = self._integrate_brownian_path(dw, num, dim, ratio)
         x = self._euler_maruyama(x, tarray, dw, dt, self.drift, self.diffusion)
         if kwargs.get('finite', False):
