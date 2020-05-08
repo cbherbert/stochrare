@@ -108,5 +108,32 @@ class TestDynamics(unittest.TestCase):
         _, x = self.oup.trajectory(np.array([0, 0]), 0, dt=0.01, T=1)
         np.testing.assert_allclose(x, traj, rtol=1e-5)
 
+
+    def test_euler_maruyama(self):
+        x = diffusion.DiffusionProcess._euler_maruyama(
+            np.array([1,2,3]),
+            1.,
+            0.7*np.ones(3),
+            0.01,
+            lambda x, t: 2*x,
+            lambda x, t: np.diag(x) + t*np.eye(3),
+        )
+        np.testing.assert_almost_equal(x[0], 2.42)
+        np.testing.assert_almost_equal(x[1], 4.14)
+        np.testing.assert_almost_equal(x[2], 5.86)
+
+        x = diffusion.DiffusionProcess._euler_maruyama(
+            np.array([3,0,0]*4, dtype=np.float32).reshape(4,3),
+            np.array([1,2,3]),
+            1*np.ones((3,3)),
+            1.,
+            lambda x, t: 2*x,
+            lambda x, t: np.diag(x) + t*np.eye(3),
+        )
+        np.testing.assert_allclose(x[1], np.array([13., 1., 1.]))
+        np.testing.assert_allclose(x[2], np.array([54., 6., 6.]))
+        np.testing.assert_allclose(x[3], np.array([219., 27., 27.]))
+
+
 if __name__ == "__main__":
     unittest.main()
