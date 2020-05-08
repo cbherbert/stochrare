@@ -206,7 +206,7 @@ class DiffusionProcess:
         else:
             deltat = kwargs.pop('deltat', dt)
             ratio = int(np.rint(dt/deltat))
-            dw = np.random.normal(0, np.sqrt(deltat), size=(num-1, dim))
+            dw = np.random.normal(0, np.sqrt(deltat), size=((num-1)*ratio, dim))
 
             # As of numpy 1.18, random.normal does not support setting the dtype of
             # the returned array (https://github.com/numpy/numpy/issues/10892).
