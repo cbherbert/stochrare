@@ -39,7 +39,12 @@ class TestDynamics(unittest.TestCase):
         x = np.ones((10, 10))
         np.testing.assert_array_equal(self.wiener.potential(x), np.zeros(len(x)))
 
+
     def test_update(self):
+        # Check that _euler_maruyama is called correctly
+        pass
+
+    def test_update_ConstantDiffusionProcess(self):
         for wienerD in (self.wiener, self.wiener1):
             dw = np.random.normal(size=wienerD.dimension)
             x = np.zeros(wienerD.dimension)
