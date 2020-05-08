@@ -191,7 +191,7 @@ class DiffusionProcess:
         dt = kwargs.get('dt', self.default_dt) # Time step
         time = kwargs.get('T', 10.0)   # Total integration time
         if dt < 0:
-            time = -time
+            raise ValueError("Timestep dt cannot be negative")
         precision = kwargs.pop('precision', np.float32)
         dim = len(x0)
         num = int(time/dt)+1
