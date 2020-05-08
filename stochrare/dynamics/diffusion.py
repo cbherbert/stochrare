@@ -207,6 +207,15 @@ class DiffusionProcess:
             deltat = kwargs.pop('deltat', dt)
             ratio = int(np.rint(dt/deltat))
             dw = np.random.normal(0, np.sqrt(deltat), size=(num-1, dim))
+
+            # As of numpy 1.18, random.normal does not support setting the dtype of
+            # the returned array (https://github.com/numpy/numpy/issues/10892).
+            # We cast dw to the same type returned by the diffusion function to prevent a numba
+            # TypingError in self._euler_maruyama.
+            # See issue https://github.com/cbherbert/stochrare/issues/14
+            returned_array = self.diffusion(x[0], tarray[0])
+            dw = dw.astype(returned_array.dtype)
+
         dw = self._integrate_brownian_path(dw, num, dim, ratio)
         x = self._euler_maruyama(x, tarray, dw, dt, self.drift, self.diffusion)
         if kwargs.get('finite', False):
