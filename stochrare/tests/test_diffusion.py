@@ -53,10 +53,16 @@ class TestDynamics(unittest.TestCase):
         solution_array = np.array([[6,27],[15,18], [24,9]])
         np.testing.assert_array_equal(integrated_dw, solution_array)
 
+
     def test_trajectory_same_timestep(self):
         dt_brownian = 1e-5
         diff = lambda x, t: np.array([[x[0], 0], [0, x[1]]], dtype=np.float32)
         model = diffusion.DiffusionProcess(lambda x, t: 2*x, diff, deterministic=True)
+
+        # Check that ValueError is raised if negative timestep dt
+        with self.assertRaises(ValueError):
+            traj = model.trajectory(np.array([1., 1.]), 0., T=0.1, dt=-1)
+
         brownian_path = self.wiener.trajectory(np.array([0., 0.]), 0., T=0.1, dt=dt_brownian)
         traj_exact1 = np.exp(1.5*brownian_path[0]+brownian_path[1][:, 0])
         traj_exact2 = np.exp(1.5*brownian_path[0]+brownian_path[1][:, 1])
