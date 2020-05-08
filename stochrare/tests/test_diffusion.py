@@ -77,6 +77,41 @@ class TestDynamics(unittest.TestCase):
         np.testing.assert_allclose(traj[1][:, 0], traj_exact1[::2], rtol=1e-2)
         np.testing.assert_allclose(traj[1][:, 1], traj_exact2[::2], rtol=1e-2)
 
+    def test_trajectory_compute_brownian_path(self):
+        dt_brownian = 1e-5
+        for dtype in [np.float32, np.float64]:
+            diff = lambda x, t: np.array([[x[0], 0], [0, x[1]]], dtype=dtype)
+            model = diffusion.DiffusionProcess(lambda x, t: 2*x, diff, deterministic=True)
+            traj = model.trajectory(np.array([1., 1.]), 0., T=0.1, dt=dt_brownian, precision=dtype)
+
+            brownian_path = self.wiener.trajectory(np.array([0., 0.]), 0., T=0.1, dt=dt_brownian)
+            traj_exact1 = np.exp(1.5*brownian_path[0]+brownian_path[1][:, 0])
+            traj_exact2 = np.exp(1.5*brownian_path[0]+brownian_path[1][:, 1])
+
+            np.testing.assert_allclose(traj[1][:, 0], traj_exact1, rtol=1e-2)
+            np.testing.assert_allclose(traj[1][:, 1], traj_exact2, rtol=1e-2)
+
+
+    def test_trajectory_compute_brownian_path_lower_timestep(self):
+        dt_brownian = 1e-5
+        for dtype in [np.float32, np.float64]:
+            with self.subTest(dtype=dtype):
+                diff = lambda x, t: np.array([[x[0], 0], [0, x[1]]], dtype=dtype)
+                model = diffusion.DiffusionProcess(lambda x, t: 2*x, diff, deterministic=True)
+                traj = model.trajectory(np.array([1., 1.]), 0.,
+                                        T=0.1,
+                                        dt=2*dt_brownian,
+                                        deltat=dt_brownian,
+                                        precision=dtype,
+                )
+
+                brownian_path = self.wiener.trajectory(np.array([0., 0.]), 0., T=0.1, dt=dt_brownian)
+                traj_exact1 = np.exp(1.5*brownian_path[0]+brownian_path[1][:, 0])
+                traj_exact2 = np.exp(1.5*brownian_path[0]+brownian_path[1][:, 1])
+
+                np.testing.assert_allclose(traj[1][:, 0], traj_exact1[::2], rtol=1e-2)
+                np.testing.assert_allclose(traj[1][:, 1], traj_exact2[::2], rtol=1e-2)
+
     def test_trajectory_generator(self):
         traj = np.array([x for t, x in self.oup.trajectory_generator(np.array([0, 0]), 0,
                                                                      100, dt=0.01)])
