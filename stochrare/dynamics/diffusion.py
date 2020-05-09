@@ -154,8 +154,12 @@ class DiffusionProcess:
            "Numerical solution of stochastic differential equations", Springer (1992).
         """
         dt = kwargs.get('dt', self.default_dt)
+        if type(xn) in [int, float]:
+            xn = np.array([xn])
         dim = len(xn)
         dw = kwargs.get('dw', np.random.normal(0.0, np.sqrt(dt), dim))
+        if type(dw) in [int, float]:
+            dw = np.array([dw])
         return xn + self.drift(xn, tn)*dt+self.diffusion(xn, tn)@dw
 
 
@@ -237,6 +241,9 @@ class DiffusionProcess:
         dt = kwargs.pop('dt', self.default_dt) # Time step
         time = kwargs.get('T', 10.0)   # Total integration time
         precision = kwargs.pop('precision', np.float32)
+
+        if type(x0) in [int, float]:
+            x0 = np.array([x0], dtype=precision)
         dim = len(x0)
         num = int(time/dt)+1
         tarray = np.linspace(t0, t0+time, num=num, dtype=precision)
@@ -246,6 +253,7 @@ class DiffusionProcess:
             dw = np.diff(w, axis=0)
         else:
             dw = np.random.normal(0, np.sqrt(dt), size=(num-1, dim))
+
         x = self.integrate_sde(x, tarray, dw, dt=dt, **kwargs)
         if kwargs.get('finite', False):
             tarray = tarray[np.isfinite(x)]

@@ -42,11 +42,17 @@ class TestDynamics(unittest.TestCase):
 
 
     def test_update(self):
+        # test for d = 3
         model = diffusion.DiffusionProcess(lambda x, t: 2*x, lambda x, t: np.diag(x)+t*np.eye(3), 3)
         x = model.update(np.array([1,2,3]), 1., dt=0.01, dw=np.array([0.7]*3))
         np.testing.assert_almost_equal(x[0], 2.42)
         np.testing.assert_almost_equal(x[1], 4.14)
         np.testing.assert_almost_equal(x[2], 5.86)
+
+        # test for d = 1
+        model = diffusion.DiffusionProcess(lambda x, t: 2*x, lambda x, t: x + t, 1)
+        x = model.update(1., 1., dt=0.01, dw=0.7)
+        np.testing.assert_almost_equal(x[0], 2.42)
 
     def test_update_ConstantDiffusionProcess(self):
         for wienerD in (self.wiener, self.wiener1):
@@ -96,15 +102,18 @@ class TestDynamics(unittest.TestCase):
 
     def test_trajectory(self):
         dt_brownian = 1e-5
-        diff = lambda x, t: np.array([[x[0], 0], [0, x[1]]], dtype=np.float32)
-        model = diffusion.DiffusionProcess(lambda x, t: 2*x, diff, 2, deterministic=True)
-        brownian_path = self.wiener.trajectory(np.array([0., 0.]), 0., T=0.1, dt=dt_brownian)
-        traj_exact1 = np.exp(1.5*brownian_path[0]+brownian_path[1][:, 0])
-        traj_exact2 = np.exp(1.5*brownian_path[0]+brownian_path[1][:, 1])
-        traj = model.trajectory(np.array([1., 1.]), 0., T=0.1, dt=dt_brownian,
-                                brownian_path=brownian_path, precision=np.float32)
-        np.testing.assert_allclose(traj[1][:, 0], traj_exact1, rtol=1e-2)
-        np.testing.assert_allclose(traj[1][:, 1], traj_exact2, rtol=1e-2)
+        diff = lambda x, t: np.diag(x).astype(np.float32)
+        for dim in range(2,5):
+            with self.subTest(dim=dim):
+                model = diffusion.DiffusionProcess(lambda x, t: 2*x, diff, dim, deterministic=True)
+                wiener = diffusion.Wiener(dim, D=0.5, deterministic=True)
+                brownian_path = wiener.trajectory(np.array([0.]*dim), 0., T=0.1, dt=dt_brownian)
+                traj = model.trajectory(np.array([1.]*dim), 0., T=0.1, dt=dt_brownian,
+                                        brownian_path=brownian_path, precision=np.float32)
+                for coord in range(dim):
+                    traj_exact = np.exp(1.5*brownian_path[0]+brownian_path[1][:, coord])
+                    np.testing.assert_allclose(traj[1][:, coord], traj_exact, rtol=1e-2)
+
 
     def test_trajectory_generator(self):
         traj = np.array([x for t, x in self.oup.trajectory_generator(np.array([0, 0]), 0,
