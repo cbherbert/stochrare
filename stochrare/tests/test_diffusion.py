@@ -125,16 +125,20 @@ class TestDynamics(unittest.TestCase):
         )
         np.testing.assert_allclose(x, np.array([1, 2.2, 9.04, 21.888]))
 
-        # x = diffusion.DiffusionProcess._euler_maruyama(
-        #     np.array([3,0,0]*4, dtype=np.float32).reshape(4,3),
-        #     np.array([1,2,3]),
-        #     1*np.ones((3,3)),
-        #     1.,
 
-        # )
-        # np.testing.assert_allclose(x[1], np.array([13., 1., 1.]))
-        # np.testing.assert_allclose(x[2], np.array([54., 6., 6.]))
-        # np.testing.assert_allclose(x[3], np.array([219., 27., 27.]))
+    def test_euler_maruyama(self):
+        # Test DiffusionProcess._euler_maruyama in dimension 3
+        x = diffusion.DiffusionProcess._euler_maruyama(
+            np.array([3.,0,0]*4).reshape(4,3),
+            np.array([1.,2.,3.]),
+            1.*np.ones((3,3)),
+            1.,
+            jit(lambda x, t: 2*x, nopython=True),
+            jit(lambda x, t: np.diag(x) + t*np.eye(3), nopython=True),
+        )
+        np.testing.assert_allclose(x[1], np.array([13., 1., 1.]))
+        np.testing.assert_allclose(x[2], np.array([54., 6., 6.]))
+        np.testing.assert_allclose(x[3], np.array([219., 27., 27.]))
 
 
 if __name__ == "__main__":
