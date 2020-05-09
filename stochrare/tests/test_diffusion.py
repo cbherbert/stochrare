@@ -41,8 +41,11 @@ class TestDynamics(unittest.TestCase):
 
 
     def test_update(self):
-        # Check that _euler_maruyama is called correctly
-        pass
+        model = diffusion.DiffusionProcess(lambda x, t: 2*x, lambda x, t: np.diag(x)+t*np.eye(3), 3)
+        x = model.update(np.array([1,2,3]), 1., dt=0.01, dw=np.array([0.7]*3))
+        np.testing.assert_almost_equal(x[0], 2.42)
+        np.testing.assert_almost_equal(x[1], 4.14)
+        np.testing.assert_almost_equal(x[2], 5.86)
 
     def test_update_ConstantDiffusionProcess(self):
         for wienerD in (self.wiener, self.wiener1):
@@ -110,18 +113,6 @@ class TestDynamics(unittest.TestCase):
 
 
     def test_euler_maruyama(self):
-        x = diffusion.DiffusionProcess._euler_maruyama(
-            np.array([1,2,3]),
-            1.,
-            0.7*np.ones(3),
-            0.01,
-            lambda x, t: 2*x,
-            lambda x, t: np.diag(x) + t*np.eye(3),
-        )
-        np.testing.assert_almost_equal(x[0], 2.42)
-        np.testing.assert_almost_equal(x[1], 4.14)
-        np.testing.assert_almost_equal(x[2], 5.86)
-
         x = diffusion.DiffusionProcess._euler_maruyama(
             np.array([3,0,0]*4, dtype=np.float32).reshape(4,3),
             np.array([1,2,3]),
