@@ -103,7 +103,7 @@ class TestDynamics(unittest.TestCase):
     def test_trajectory(self):
         dt_brownian = 1e-5
         diff = lambda x, t: np.diag(x).astype(np.float32)
-        for dim in range(2,5):
+        for dim in range(1,5):
             with self.subTest(dim=dim):
                 model = diffusion.DiffusionProcess(lambda x, t: 2*x, diff, dim, deterministic=True)
                 wiener = diffusion.Wiener(dim, D=0.5, deterministic=True)
@@ -113,6 +113,18 @@ class TestDynamics(unittest.TestCase):
                 for coord in range(dim):
                     traj_exact = np.exp(1.5*brownian_path[0]+brownian_path[1][:, coord])
                     np.testing.assert_allclose(traj[1][:, coord], traj_exact, rtol=1e-2)
+
+
+    def test_trajectory_init_cond_as_scalar(self):
+        dt_brownian = 1e-5
+        diff = lambda x, t: np.diag(x).astype(np.float32)
+        model = diffusion.DiffusionProcess(lambda x, t: 2*x, diff, 1, deterministic=True)
+        wiener = diffusion.Wiener(1, D=0.5, deterministic=True)
+        brownian_path = wiener.trajectory(np.array([0.]), 0., T=0.1, dt=dt_brownian)
+        traj = model.trajectory(np.array([1.]), 0., T=0.1, dt=dt_brownian,
+                                brownian_path=brownian_path, precision=np.float32)
+        traj_exact = np.exp(1.5*brownian_path[0]+brownian_path[1][:, 0])
+        np.testing.assert_allclose(traj[1][:, 0], traj_exact, rtol=1e-2)
 
 
     def test_trajectory_generator(self):
