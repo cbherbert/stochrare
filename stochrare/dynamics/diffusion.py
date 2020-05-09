@@ -263,6 +263,17 @@ class DiffusionProcess:
         return x
 
 
+    @staticmethod
+    @jit(nopython=True)
+    def _euler_maruyama_1d(x, t, w, dt, drift, diffusion):
+        for index in range(1, len(w)+1):
+            wn = w[index-1]
+            xn = x[index-1]
+            tn = t[index-1]
+            x[index] = xn + drift(xn, tn)*dt + diffusion(xn, tn)*wn
+        return x
+
+
     @pseudorand
     def trajectory_generator(self, x0, t0, nsteps, **kwargs):
         r"""
