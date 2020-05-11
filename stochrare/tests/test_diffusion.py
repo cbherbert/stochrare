@@ -86,17 +86,26 @@ class TestDynamics(unittest.TestCase):
 
 
     def test_integrate_brownian_path(self):
+        func = lambda x,t: x
+        model = diffusion.DiffusionProcess(func, func, 2)
         num = 4
-        dim = 2
         ratio = 3
 
         dw_wrong_shape = np.array([range(1,11), range(11,1,-1)]).transpose()
         with self.assertRaises(ValueError):
-            diffusion.DiffusionProcess._integrate_brownian_path(dw_wrong_shape, num, dim, ratio)
+            model._integrate_brownian_path(dw_wrong_shape, num, ratio)
 
+        # 2d
         dw_correct_shape = np.array([range(1,10), range(10,1,-1)]).transpose()
-        integrated_dw = diffusion.DiffusionProcess._integrate_brownian_path(dw_correct_shape, num, dim, ratio)
+        integrated_dw = model._integrate_brownian_path(dw_correct_shape, num, ratio)
         solution_array = np.array([[6,27],[15,18], [24,9]])
+        np.testing.assert_array_equal(integrated_dw, solution_array)
+
+        # 1d
+        model = diffusion.DiffusionProcess(func, func, 1)
+        dw_correct_shape = np.array(range(1,10))
+        integrated_dw = model._integrate_brownian_path(dw_correct_shape, num, ratio)
+        solution_array = np.array([6, 15, 24])
         np.testing.assert_array_equal(integrated_dw, solution_array)
 
 

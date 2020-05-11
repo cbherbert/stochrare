@@ -159,8 +159,7 @@ class DiffusionProcess:
         return xn + self.drift(xn, tn)*dt+self.diffusion(xn, tn)@dw
 
 
-    @staticmethod
-    def _integrate_brownian_path(dw, num, dim, ratio):
+    def _integrate_brownian_path(self, dw, num, ratio):
         """
         Return piece-wise integrated brownian path.
 
@@ -181,12 +180,16 @@ class DiffusionProcess:
           Piecewise integrated brownian path.
         """
 
-        expected_shape = ((num-1)*ratio, dim)
+        expected_shape = ((num-1)*ratio, self.dimension) if self.dimension > 1 else ((num-1)*ratio,)
         if not dw.shape == expected_shape:
             raise ValueError("Brownian path array has dimension {}, expected {}".format(dw.shape, expected_shape))
-        integrated_dw = np.zeros((num-1, dim), dtype=dw.dtype)
-        for coord in range(dim):
-            integrated_dw[:,coord] = dw[:,coord].reshape((num-1, ratio)).sum(axis=1)
+        if self.dimension > 1:
+            integrated_dw = np.zeros((num-1, self.dimension), dtype=dw.dtype)
+            for coord in range(self.dimension):
+                integrated_dw[:,coord] = dw[:,coord].reshape((num-1, ratio)).sum(axis=1)
+        else:
+            integrated_dw = dw = dw.reshape((num-1, ratio)).sum(axis=1)
+
         return integrated_dw
 
     def integrate_sde(self, x, t, w, **kwargs):
@@ -297,7 +300,7 @@ class DiffusionProcess:
             returned_array = self.diffusion(x[0], tarray[0])
             dw = dw.astype(returned_array.dtype)
 
-        dw = self._integrate_brownian_path(dw, num, dim, ratio)
+        dw = self._integrate_brownian_path(dw, num, ratio)
         x = self.integrate_sde(x, tarray, dw, dt=dt, **kwargs)
         if kwargs.get('finite', False):
             tarray = tarray[np.isfinite(x)]
