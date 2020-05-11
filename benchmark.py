@@ -131,6 +131,23 @@ class OupNumba3:
             x[i] = (1-dt)*x[i-1]+np.sqrt(0.2)*w
         return x
 
+class OupNumba3b:
+    """
+    Numba with OOP, option 3b: static method with np.dot
+    """
+    @staticmethod
+    @jit(nopython=True)
+    def trajectory(niter, dt):
+        np.random.seed(100)
+        x = np.zeros((niter, 1))
+        wiener = np.random.normal(0.0, np.sqrt(dt), niter-1)
+        wiener = wiener.reshape(niter-1, 1)
+        diff=np.array([np.sqrt(2)])
+        for i, w in enumerate(wiener, 1):
+            x[i][0] = (1-dt)*x[i-1][0]+np.dot(diff, w)
+        return x
+
+
 class OupNumba4:
     """
     Numba with OOP with function member
@@ -259,6 +276,9 @@ def benchmark_trajectory_numba(nb=100):
     duration = timeit.timeit('OupNumba3().trajectory(1000, 0.01)', number=nb,
                              globals=globals())*1000
     print(f"Solving SDE (numba OUP 3)... {nb} realizations (1000 samples) in {duration:.3f}ms")
+    duration = timeit.timeit('OupNumba3b().trajectory(1000, 0.01)', number=nb,
+                             globals=globals())*1000
+    print(f"Solving SDE (numba OUP 3b)... {nb} realizations (1000 samples) in {duration:.3f}ms")
     duration = timeit.timeit(lambda: oupnumba4_oop.trajectory(1000, 0.01), number=nb)*1000
     print(f"Solving SDE (numba OUP 4)... {nb} realizations (1000 samples) in {duration:.3f}ms")
     duration = timeit.timeit(lambda: oupnumba4b_oop.trajectory(1000, 0.01), number=nb)*1000
