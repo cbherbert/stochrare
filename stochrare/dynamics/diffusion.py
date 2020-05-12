@@ -280,13 +280,8 @@ class DiffusionProcess:
         precision = kwargs.pop('precision', np.float32)
         num = int(time/dt)+1
         tarray = np.linspace(t0, t0+time, num=num, dtype=precision)
-        if self.dimension == 1:
-            shape_x = (num,)
-            shape_dw = ((num-1)*ratio,)
-        else:
-            shape_x = (num, len(x0))
-            shape_dw = ((num-1)*ratio, len(x0))
-        x = np.full(shape_x, x0, dtype=precision)
+        trajectory_shape = (num,len(x0)) if self.dimension > 1 else (num,)
+        x = np.full(trajectory_shape, x0, dtype=precision)
         if 'brownian_path' in kwargs:
             tw, w = kwargs.pop('brownian_path')
             dw = np.diff(w, axis=0)
@@ -296,7 +291,8 @@ class DiffusionProcess:
         else:
             deltat = kwargs.pop('deltat', dt)
             ratio = int(np.rint(dt/deltat))
-            dw = np.random.normal(0, np.sqrt(deltat), size=shape_dw)
+            brownian_path_shape = ((num-1)*ratio,len(x0)) if self.dimension > 1 else ((num-1)*ratio,)
+            dw = np.random.normal(0, np.sqrt(deltat), size=brownian_path_shape)
 
             # As of numpy 1.18, random.normal does not support setting the dtype of
             # the returned array (https://github.com/numpy/numpy/issues/10892).
