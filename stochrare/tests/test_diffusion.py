@@ -30,8 +30,7 @@ class TestDynamics(unittest.TestCase):
         self.oup.D0 = 1
         self.oup.theta = 1
         self.oup.mu = 0
-        self.assertEqual(self.wiener._euler_maruyama, diffusion.DiffusionProcess._euler_maruyama_multidim)
-        self.assertEqual(self.wiener1._euler_maruyama, diffusion.DiffusionProcess._euler_maruyama_1d)
+
 
     def test_potential(self):
         x = np.linspace(-1, 1)
@@ -57,22 +56,26 @@ class TestDynamics(unittest.TestCase):
         tarray = np.linspace(0, time, num=num)
 
         for dim in range(1,5):
-            x = np.full((num, dim), x0)
-            dw = np.random.normal(0, np.sqrt(dt), size=(num-1, dim))
+            if dim==1:
+                x = np.full((num,), x0)
+                dw = np.random.normal(0, np.sqrt(dt), size=(num-1,))
+                diff = lambda x, t: 1.
+            else:
+                x = np.full((num, dim), x0)
+                dw = np.random.normal(0, np.sqrt(dt), size=(num-1,dim))
+                diff = lambda x, t: np.identity(dim)
+            model = diffusion.DiffusionProcess(
+                lambda x, t: 2*x,
+                diff,
+                dim,
+                deterministic=True,
+            )
             with self.subTest(dim=dim):
-                model = diffusion.DiffusionProcess(
-                    lambda x, t: 2*x,
-                    lambda x, t: np.identity(dim),
-                    dim,
-                    deterministic=True,
-                )
                 model.integrate_sde(x, tarray, dw, dt=dt, method="euler")
                 model._euler_maruyama.assert_called_with(x,
                                                          tarray,
                                                          dw,
-                                                         dt,
-                                                         model.drift,
-                                                         model.diffusion
+                                                         dt
                 )
         self.assertEqual(model._euler_maruyama.call_count, 4)
 

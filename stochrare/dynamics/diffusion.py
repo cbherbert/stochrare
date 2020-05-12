@@ -69,11 +69,6 @@ class DiffusionProcess:
         self.dimension = dimension
         self.__deterministic__ = kwargs.get('deterministic', False)
 
-        self._euler_maruyama = (
-            self._euler_maruyama_multidim
-            if self.dimension > 1
-            else self._euler_maruyama_1d
-        )
 
     @property
     def drift(self):
@@ -237,7 +232,7 @@ class DiffusionProcess:
         method = kwargs.get('method', 'euler')
         dt = kwargs.get('dt', self.default_dt)
         if method in ('euler', 'euler-maruyama', 'em'):
-            x = self._euler_maruyama(x, t, w, dt, self.drift, self.diffusion)
+            x = self._euler_maruyama(x, t, w, dt)
         else:
             raise NotImplementedError('SDE integration error: Numerical scheme not implemented')
         return x
@@ -308,6 +303,13 @@ class DiffusionProcess:
             tarray = tarray[np.isfinite(x)]
             x = x[np.isfinite(x)]
         return tarray, x
+
+
+    def _euler_maruyama(self, x, t, w, dt):
+        if self.dimension > 1:
+            return self._euler_maruyama_multidim(x, t, w, dt, self.drift, self.diffusion)
+        else:
+            return self._euler_maruyama_1d(x, t, w, dt, self.drift, self.diffusion)
 
 
     @staticmethod
