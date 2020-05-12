@@ -69,6 +69,12 @@ class DiffusionProcess:
         self.dimension = dimension
         self.__deterministic__ = kwargs.get('deterministic', False)
 
+        self._euler_maruyama = (
+            self._euler_maruyama_multidim
+            if self.dimension > 1
+            else self._euler_maruyama_1d
+        )
+
     @property
     def drift(self):
         return self._drift
@@ -307,14 +313,26 @@ class DiffusionProcess:
             x = x[np.isfinite(x)]
         return tarray, x
 
+
     @staticmethod
     @jit(nopython=True)
-    def _euler_maruyama(x, t, w, dt, drift, diffusion):
-        for index in range(1, len(w)+1):
-            wn = w[index-1]
-            xn = x[index-1]
-            tn = t[index-1]
-            x[index] = xn + drift(xn, tn)*dt + np.dot(diffusion(xn, tn), wn)
+    def _euler_maruyama_multidim(x, t, w, dt, drift, diffusion):
+        for index, wn in enumerate(w):
+            wn = w[index]
+            xn = x[index]
+            tn = t[index]
+            x[index+1] = xn + drift(xn, tn)*dt + np.dot(diffusion(xn, tn), wn)
+        return x
+
+
+    @staticmethod
+    @jit(nopython=True)
+    def _euler_maruyama_1d(x, t, w, dt, drift, diffusion):
+        for index, wn in enumerate(w):
+            wn = w[index]
+            xn = x[index]
+            tn = t[index]
+            x[index+1] = xn + drift(xn, tn)*dt + diffusion(xn, tn)*wn
         return x
 
 
