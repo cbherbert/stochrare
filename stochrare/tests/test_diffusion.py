@@ -30,6 +30,8 @@ class TestDynamics(unittest.TestCase):
         self.oup.D0 = 1
         self.oup.theta = 1
         self.oup.mu = 0
+        self.assertEqual(self.wiener._euler_maruyama, diffusion.DiffusionProcess._euler_maruyama_multidim)
+        self.assertEqual(self.wiener1._euler_maruyama, diffusion.DiffusionProcess._euler_maruyama_1d)
 
     def test_potential(self):
         x = np.linspace(-1, 1)
