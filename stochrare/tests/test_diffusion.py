@@ -29,6 +29,9 @@ class TestDynamics(unittest.TestCase):
         self.oup.D0 = 1
         self.oup.theta = 1
         self.oup.mu = 0
+        self.assertEqual(self.oup.dimension, 2)
+        with self.assertRaises(ValueError):
+            model = diffusion.DiffusionProcess(lambda x,t: x, lambda x,t: x, -1)
 
     def test_potential(self):
         x = np.linspace(-1, 1)
