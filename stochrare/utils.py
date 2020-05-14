@@ -13,6 +13,7 @@ This includes decorators, but is not restricted to it.
 import functools
 import numpy as np
 
+
 def pseudorand(fun):
     """
     Decorator for methods of random objects.
@@ -24,12 +25,14 @@ def pseudorand(fun):
 
     The decorator will raise an error if the object does not have a `__deterministic__` attribute.
     """
+
     @functools.wraps(fun)
     def wrapper(*args, **kwargs):
         if args[0].__deterministic__:
             np.random.seed(100)
         retval = fun(*args, **kwargs)
         return retval
+
     return wrapper
 
 
@@ -40,11 +43,16 @@ def one_d_method(fun):
     greater than 1, method is not executed and error is raised.
     Else, method is executed as usual.
     """
+
     @functools.wraps(fun)
     def wrapper(*args, **kwargs):
         if args[0].dimension == 1:
             retval = fun(*args, **kwargs)
             return retval
         else:
-            raise(NotImplementedError)
+            msg = "Method {} is not available for dynamics of dimension 1.".format(
+                fun.__name__
+            )
+            raise NotImplementedError(msg)
+
     return wrapper
