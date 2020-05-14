@@ -31,3 +31,20 @@ def pseudorand(fun):
         retval = fun(*args, **kwargs)
         return retval
     return wrapper
+
+
+def one_d_method(fun):
+    """
+    Decorator for methods of class DiffusionProcess.
+    If the object's `dimension` attribute is set to a value strictly
+    greater than 1, method is not executed and error is raised.
+    Else, method is executed as usual.
+    """
+    @functools.wraps(fun)
+    def wrapper(*args, **kwargs):
+        if args[0].dimension == 1:
+            retval = fun(*args, **kwargs)
+            return retval
+        else:
+            raise(NotImplementedError)
+    return wrapper
