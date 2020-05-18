@@ -69,6 +69,7 @@ class DiffusionProcess:
         self.dimension = dimension
         self.__deterministic__ = kwargs.get('deterministic', False)
 
+
     @property
     def drift(self):
         return self._drift
@@ -159,8 +160,7 @@ class DiffusionProcess:
         return xn + self.drift(xn, tn)*dt+self.diffusion(xn, tn)@dw
 
 
-    @staticmethod
-    def _integrate_brownian_path(dw, num, dim, ratio):
+    def _integrate_brownian_path(self, dw, num, ratio):
         """
         Return piece-wise integrated brownian path.
 
@@ -181,12 +181,16 @@ class DiffusionProcess:
           Piecewise integrated brownian path.
         """
 
-        expected_shape = ((num-1)*ratio, dim)
+        expected_shape = ((num-1)*ratio, self.dimension) if self.dimension > 1 else ((num-1)*ratio,)
         if not dw.shape == expected_shape:
             raise ValueError("Brownian path array has dimension {}, expected {}".format(dw.shape, expected_shape))
-        integrated_dw = np.zeros((num-1, dim), dtype=dw.dtype)
-        for coord in range(dim):
-            integrated_dw[:,coord] = dw[:,coord].reshape((num-1, ratio)).sum(axis=1)
+        if self.dimension > 1:
+            integrated_dw = np.zeros((num-1, self.dimension), dtype=dw.dtype)
+            for coord in range(self.dimension):
+                integrated_dw[:,coord] = dw[:,coord].reshape((num-1, ratio)).sum(axis=1)
+        else:
+            integrated_dw = dw = dw.reshape((num-1, ratio)).sum(axis=1)
+
         return integrated_dw
 
     def integrate_sde(self, x, t, w, **kwargs):
@@ -228,7 +232,7 @@ class DiffusionProcess:
         method = kwargs.get('method', 'euler')
         dt = kwargs.get('dt', self.default_dt)
         if method in ('euler', 'euler-maruyama', 'em'):
-            x = self._euler_maruyama(x, t, w, dt, self.drift, self.diffusion)
+            x = self._euler_maruyama(x, t, w, dt)
         else:
             raise NotImplementedError('SDE integration error: Numerical scheme not implemented')
         return x
@@ -269,10 +273,10 @@ class DiffusionProcess:
         if dt < 0:
             raise ValueError("Timestep dt cannot be negative")
         precision = kwargs.pop('precision', np.float32)
-        dim = len(x0)
         num = int(time/dt)+1
         tarray = np.linspace(t0, t0+time, num=num, dtype=precision)
-        x = np.full((num, dim), x0, dtype=precision)
+        trajectory_shape = (num,len(x0)) if self.dimension > 1 else (num,)
+        x = np.full(trajectory_shape, x0, dtype=precision)
         if 'brownian_path' in kwargs:
             tw, w = kwargs.pop('brownian_path')
             dw = np.diff(w, axis=0)
@@ -282,7 +286,8 @@ class DiffusionProcess:
         else:
             deltat = kwargs.pop('deltat', dt)
             ratio = int(np.rint(dt/deltat))
-            dw = np.random.normal(0, np.sqrt(deltat), size=((num-1)*ratio, dim))
+            brownian_path_shape = ((num-1)*ratio,len(x0)) if self.dimension > 1 else ((num-1)*ratio,)
+            dw = np.random.normal(0, np.sqrt(deltat), size=brownian_path_shape)
 
             # As of numpy 1.18, random.normal does not support setting the dtype of
             # the returned array (https://github.com/numpy/numpy/issues/10892).
@@ -292,21 +297,40 @@ class DiffusionProcess:
             returned_array = self.diffusion(x[0], tarray[0])
             dw = dw.astype(returned_array.dtype)
 
-        dw = self._integrate_brownian_path(dw, num, dim, ratio)
+        dw = self._integrate_brownian_path(dw, num, ratio)
         x = self.integrate_sde(x, tarray, dw, dt=dt, **kwargs)
         if kwargs.get('finite', False):
             tarray = tarray[np.isfinite(x)]
             x = x[np.isfinite(x)]
         return tarray, x
 
+
+    def _euler_maruyama(self, x, t, w, dt):
+        if self.dimension > 1:
+            return self._euler_maruyama_multidim(x, t, w, dt, self.drift, self.diffusion)
+        else:
+            return self._euler_maruyama_1d(x, t, w, dt, self.drift, self.diffusion)
+
+
     @staticmethod
     @jit(nopython=True)
-    def _euler_maruyama(x, t, w, dt, drift, diffusion):
-        for index in range(1, len(w)+1):
-            wn = w[index-1]
-            xn = x[index-1]
-            tn = t[index-1]
-            x[index] = xn + drift(xn, tn)*dt + np.dot(diffusion(xn, tn), wn)
+    def _euler_maruyama_multidim(x, t, w, dt, drift, diffusion):
+        for index in range(len(w)):
+            wn = w[index]
+            xn = x[index]
+            tn = t[index]
+            x[index+1] = xn + drift(xn, tn)*dt + np.dot(diffusion(xn, tn), wn)
+        return x
+
+
+    @staticmethod
+    @jit(nopython=True)
+    def _euler_maruyama_1d(x, t, w, dt, drift, diffusion):
+        for index in range(len(w)):
+            wn = w[index]
+            xn = x[index]
+            tn = t[index]
+            x[index+1] = xn + drift(xn, tn)*dt + diffusion(xn, tn)*wn
         return x
 
 

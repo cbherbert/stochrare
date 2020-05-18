@@ -5,6 +5,7 @@ import unittest
 import numpy as np
 import stochrare.dynamics.diffusion as diffusion
 from unittest.mock import patch
+from numba import jit
 
 class TestDynamics(unittest.TestCase):
     def setUp(self):
@@ -30,6 +31,7 @@ class TestDynamics(unittest.TestCase):
         self.oup.theta = 1
         self.oup.mu = 0
 
+
     def test_potential(self):
         x = np.linspace(-1, 1)
         np.testing.assert_array_equal(diffusion.Wiener.potential(x), np.zeros_like(x))
@@ -54,22 +56,26 @@ class TestDynamics(unittest.TestCase):
         tarray = np.linspace(0, time, num=num)
 
         for dim in range(1,5):
-            x = np.full((num, dim), x0)
-            dw = np.random.normal(0, np.sqrt(dt), size=(num-1, dim))
+            if dim==1:
+                x = np.full((num,), x0)
+                dw = np.random.normal(0, np.sqrt(dt), size=(num-1,))
+                diff = lambda x, t: 1.
+            else:
+                x = np.full((num, dim), x0)
+                dw = np.random.normal(0, np.sqrt(dt), size=(num-1,dim))
+                diff = lambda x, t: np.identity(dim)
+            model = diffusion.DiffusionProcess(
+                lambda x, t: 2*x,
+                diff,
+                dim,
+                deterministic=True,
+            )
             with self.subTest(dim=dim):
-                model = diffusion.DiffusionProcess(
-                    lambda x, t: 2*x,
-                    lambda x, t: np.identity(dim),
-                    dim,
-                    deterministic=True,
-                )
                 model.integrate_sde(x, tarray, dw, dt=dt, method="euler")
                 model._euler_maruyama.assert_called_with(x,
                                                          tarray,
                                                          dw,
-                                                         dt,
-                                                         model.drift,
-                                                         model.diffusion
+                                                         dt
                 )
         self.assertEqual(model._euler_maruyama.call_count, 4)
 
@@ -86,17 +92,26 @@ class TestDynamics(unittest.TestCase):
 
 
     def test_integrate_brownian_path(self):
+        func = lambda x,t: x
+        model = diffusion.DiffusionProcess(func, func, 2)
         num = 4
-        dim = 2
         ratio = 3
 
         dw_wrong_shape = np.array([range(1,11), range(11,1,-1)]).transpose()
         with self.assertRaises(ValueError):
-            diffusion.DiffusionProcess._integrate_brownian_path(dw_wrong_shape, num, dim, ratio)
+            model._integrate_brownian_path(dw_wrong_shape, num, ratio)
 
+        # 2d
         dw_correct_shape = np.array([range(1,10), range(10,1,-1)]).transpose()
-        integrated_dw = diffusion.DiffusionProcess._integrate_brownian_path(dw_correct_shape, num, dim, ratio)
+        integrated_dw = model._integrate_brownian_path(dw_correct_shape, num, ratio)
         solution_array = np.array([[6,27],[15,18], [24,9]])
+        np.testing.assert_array_equal(integrated_dw, solution_array)
+
+        # 1d
+        model = diffusion.DiffusionProcess(func, func, 1)
+        dw_correct_shape = np.array(range(1,10))
+        integrated_dw = model._integrate_brownian_path(dw_correct_shape, num, ratio)
+        solution_array = np.array([6, 15, 24])
         np.testing.assert_array_equal(integrated_dw, solution_array)
 
 
@@ -169,6 +184,33 @@ class TestDynamics(unittest.TestCase):
                                                                      100, dt=0.01)])
         _, x = self.oup.trajectory(np.array([0, 0]), 0, dt=0.01, T=1)
         np.testing.assert_allclose(x, traj, rtol=1e-5)
+
+
+    def test_euler_maruyama(self):
+        # Test DiffusionProcess._euler_maruyama in dimension 3
+        x = diffusion.DiffusionProcess._euler_maruyama_multidim(
+            np.array([3.,0,0]*4).reshape(4,3),
+            np.array([1.,2.,3.]),
+            1.*np.ones((3,3)),
+            1.,
+            jit(lambda x, t: 2*x, nopython=True),
+            jit(lambda x, t: np.diag(x) + t*np.eye(3), nopython=True),
+        )
+        np.testing.assert_allclose(x[1], np.array([13., 1., 1.]))
+        np.testing.assert_allclose(x[2], np.array([54., 6., 6.]))
+        np.testing.assert_allclose(x[3], np.array([219., 27., 27.]))
+
+        # Test DiffusionProcess._euler_maruyama in dimension 1
+        x0 = 1.
+        x = diffusion.DiffusionProcess._euler_maruyama_1d(
+            np.full((4,), x0),
+            np.array(range(3)),
+            np.array([1.,2.,1.]),
+            0.1,
+            jit(lambda x, t: 2*x, nopython=True),
+            jit(lambda x, t: x + t, nopython=True),
+        )
+        np.testing.assert_allclose(x, np.array([1, 2.2, 9.04, 21.888]))
 
 if __name__ == "__main__":
     unittest.main()
