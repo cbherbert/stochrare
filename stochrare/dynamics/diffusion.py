@@ -315,7 +315,7 @@ class DiffusionProcess:
     @staticmethod
     @jit(nopython=True)
     def _euler_maruyama_multidim(x, t, w, dt, drift, diffusion):
-        for index, wn in enumerate(w):
+        for index in range(len(w)):
             wn = w[index]
             xn = x[index]
             tn = t[index]
@@ -326,7 +326,7 @@ class DiffusionProcess:
     @staticmethod
     @jit(nopython=True)
     def _euler_maruyama_1d(x, t, w, dt, drift, diffusion):
-        for index, wn in enumerate(w):
+        for index in range(len(w)):
             wn = w[index]
             xn = x[index]
             tn = t[index]
