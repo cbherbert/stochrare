@@ -70,13 +70,6 @@ class TestDynamics(unittest.TestCase):
         x = np.ones((10, 10))
         np.testing.assert_array_equal(self.wiener.potential(x), np.zeros(len(x)))
 
-    def test_update(self):
-        for wienerD in (self.wiener, self.wiener1):
-            dw = np.random.normal(size=wienerD.dimension)
-            x = np.zeros(wienerD.dimension)
-            np.testing.assert_array_equal(wienerD.update(x, 0, dw=dw), dw)
-            np.testing.assert_array_equal(diffusion.DiffusionProcess.update(wienerD, x, 0, dw=dw),
-                                          dw)
 
     @patch.object(diffusion.DiffusionProcess, "_euler_maruyama")
     def test_integrate_sde(self, mock_DiffusionProcess):
@@ -240,6 +233,21 @@ class TestDynamics(unittest.TestCase):
             jit(lambda x, t: x + t, nopython=True),
         )
         np.testing.assert_allclose(x, np.array([1, 2.2, 9.04, 21.888]))
+
+
+class TestOrnsteinUlhenbeckProcess(unittest.TestCase):
+    def setUp(self):
+        self.oup = diffusion.OrnsteinUhlenbeck(0, 1, 1, 2, deterministic=True)
+        self.wiener = diffusion.Wiener(2, D=0.5, deterministic=True)
+        self.wiener1 = diffusion.Wiener(1, D=0.5, deterministic=True)
+
+
+    def test_update(self):
+        for wienerD in (self.wiener, self.wiener1):
+            dw = np.random.normal(size=wienerD.dimension)
+            x = np.zeros(wienerD.dimension)
+            np.testing.assert_array_equal(wienerD.update(x, 0, dw=dw), dw)
+
 
 if __name__ == "__main__":
     unittest.main()
