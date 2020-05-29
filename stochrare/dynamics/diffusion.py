@@ -155,13 +155,8 @@ class DiffusionProcess:
            "Numerical solution of stochastic differential equations", Springer (1992).
         """
         dt = kwargs.get('dt', self.default_dt)
-        if len(xn) != self.dimension:
-            raise ValueError(
-                "State vector xn dimension has dimension {}, expected {}".format(
-                    len(xn), self.dimension
-                )
-            )
-        if self.dimension > 1:
+        dim = self.dimension
+        if dim > 1:
             dw = kwargs.get('dw', np.random.normal(0.0, np.sqrt(dt), dim))
             return xn + self.drift(xn, tn)*dt+self.diffusion(xn, tn) @ dw
         else:
