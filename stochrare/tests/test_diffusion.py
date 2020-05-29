@@ -13,6 +13,22 @@ class TestDynamics(unittest.TestCase):
         self.wiener = diffusion.Wiener(2, D=0.5, deterministic=True)
         self.wiener1 = diffusion.Wiener(1, D=0.5, deterministic=True)
 
+
+        self.diffusions = []
+        self.diffusions.append(diffusion.DiffusionProcess(lambda x, t: 2*x,
+                                                          lambda x, t: 1,
+                                                          1,
+                                                          deterministic=True))
+        self.diffusions.append(diffusion.DiffusionProcess(lambda x, t: 2*x,
+                                                          lambda x, t: np.identity(2),
+                                                          2,
+                                                          deterministic=True))
+        self.diffusions.append(diffusion.DiffusionProcess(lambda x, t: 2*x,
+                                                          lambda x, t: np.identity(3),
+                                                          3,
+                                                          deterministic=True))
+
+
     def test_properties(self):
         self.assertEqual(self.oup.D0, 1)
         self.assertEqual(self.oup.mu, 0)
@@ -30,6 +46,19 @@ class TestDynamics(unittest.TestCase):
         self.oup.D0 = 1
         self.oup.theta = 1
         self.oup.mu = 0
+
+
+    def test_update(self):
+        x = 0.0
+        dw = np.random.normal(1)
+        result = self.diffusions[0].update(x, 0, dw=dw)
+        np.testing.assert_equal(result, dw)
+
+        for model in self.diffusions[1:]:
+            x = np.zeros(shape=model.dimension)
+            dw = np.random.normal(size=model.dimension)
+            result = model.update(x, 0, dw=dw)
+            np.testing.assert_array_equal(result, dw)
 
 
     def test_potential(self):
