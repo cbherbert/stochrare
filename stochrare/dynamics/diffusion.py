@@ -32,6 +32,7 @@ These classes form a hierarchy deriving from the base class, `DiffusionProcess`.
 import numpy as np
 import scipy.integrate as integrate
 from scipy.interpolate import interp1d
+from scipy.misc import derivative
 from numba import jit
 from ..utils import pseudorand
 
@@ -341,16 +342,14 @@ class DiffusionProcess:
 
 
     @staticmethod
-    @jit(nopython=True)
     def _milstein(x, t, w, dt, drift, diffusion):
-        index = 1
         for index, wn in enumerate(w):
-            xn = x[index-1]
-            tn = t[index-1]
+            xn = x[index]
+            tn = t[index]
             a = drift(xn, tn)
             b = diffusion(xn, tn)
-            db = derivative(diffusion, xn, dx=1e-6, args=(t, ))
-            x[index] = xn + (a-0.5*b*db)*dt + b*wn + 0.5*b*db*wn**2
+            db = derivative(diffusion, xn, dx=1e-6, args=(tn,))
+            x[index+1] = xn + (a-0.5*b*db)*dt + b*wn + 0.5*b*db*wn**2
         return x
 
 
