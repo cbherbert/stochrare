@@ -237,6 +237,8 @@ class DiffusionProcess:
         dt = kwargs.get('dt', self.default_dt)
         if method in ('euler', 'euler-maruyama', 'em'):
             x = self._euler_maruyama(x, t, w, dt)
+        elif method=='milstein':
+            x = self._milstein(x, t, w, dt, self.drift, self.diffusion)
         else:
             raise NotImplementedError('SDE integration error: Numerical scheme not implemented')
         return x
@@ -335,6 +337,20 @@ class DiffusionProcess:
             xn = x[index]
             tn = t[index]
             x[index+1] = xn + drift(xn, tn)*dt + diffusion(xn, tn)*wn
+        return x
+
+
+    @staticmethod
+    @jit(nopython=True)
+    def _milstein(x, t, w, dt, drift, diffusion):
+        index = 1
+        for index, wn in enumerate(w):
+            xn = x[index-1]
+            tn = t[index-1]
+            a = drift(xn, tn)
+            b = diffusion(xn, tn)
+            db = derivative(diffusion, xn, dx=1e-6, args=(t, ))
+            x[index] = xn + (a-0.5*b*db)*dt + b*wn + 0.5*b*db*wn**2
         return x
 
 
