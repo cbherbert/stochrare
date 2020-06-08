@@ -393,6 +393,43 @@ class DiffusionProcess:
             x = self.update(x, t, dt=dt)
             yield t, obs(x, t)
 
+
+    def trajectory_conditional(self, x0, t0, pred, **kwargs):
+        r"""
+        Compute sample path satisfying arbitrary condition.
+
+        Parameters
+        ----------
+        x0: float
+            The initial position.
+        t0: float
+            The initial time.
+        pred: function with two arguments
+            The predicate to select trajectories.
+
+        Keyword Arguments
+        -----------------
+        dt: float
+            The time step, forwarded to the :meth:`update` routine
+            (default 0.1, unless overridden by a subclass).
+        T: float
+            The time duration of the trajectory (default 10).
+        finite: bool
+            Filter finite values before returning trajectory (default False).
+
+        Returns
+        -------
+        t, x: ndarray, ndarray
+            Time-discrete sample path for the stochastic process with initial conditions (t0, x0).
+            The array t contains the time discretization and x the value of the sample path
+            at these instants.
+        """
+        while True:
+            t, x = self.trajectory(x0, t0, **kwargs)
+            if pred(t, x):
+                break
+        return t, x
+
     def sample_mean(self, x0, t0, nsteps, nsamples, **kwargs):
         r"""
         Compute the sample mean of a time dependent observable, conditioned on initial conditions.

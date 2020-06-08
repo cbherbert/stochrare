@@ -208,6 +208,20 @@ class TestDynamics(unittest.TestCase):
         np.testing.assert_allclose(x, traj, rtol=1e-5)
 
 
+    def test_trajectory_conditional(self):
+        def pred(t,x):
+            Xp = [np.dot(xi,xi) for xi in x[t>0.5]]
+            Xm = [np.dot(xi,xi) for xi in x[t<0.5]]
+            return np.mean(Xp) > np.mean(Xm)
+
+        x0 = np.array([0.,0.])
+        t, x = self.oup.trajectory_conditional(x0, 0, pred, T=1)
+
+        Xp = [np.dot(xi,xi) for xi in x[t>0.5]]
+        Xm = [np.dot(xi,xi) for xi in x[t<0.5]]
+        self.assertTrue(np.mean(Xp) > np.mean(Xm))
+
+
     def test_euler_maruyama(self):
         # Test DiffusionProcess._euler_maruyama in dimension 3
         x = diffusion.DiffusionProcess._euler_maruyama_multidim(
