@@ -34,7 +34,7 @@ import scipy.integrate as integrate
 from scipy.interpolate import interp1d
 from scipy.misc import derivative
 from numba import jit
-from ..utils import pseudorand
+from ..utils import pseudorand, one_d_method
 
 class DiffusionProcess:
     r"""
