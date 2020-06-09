@@ -291,11 +291,10 @@ class DiffusionProcess:
 
             # As of numpy 1.18, random.normal does not support setting the dtype of
             # the returned array (https://github.com/numpy/numpy/issues/10892).
-            # We cast dw to the same type returned by the diffusion function to prevent a numba
+            # We cast dw to the type of the state vector "x" to prevent a numba
             # TypingError in self._euler_maruyama.
             # See issue https://github.com/cbherbert/stochrare/issues/14
-            returned_array = self.diffusion(x[0], tarray[0])
-            dw = dw.astype(returned_array.dtype)
+            dw = dw.astype(x.dtype)
 
         dw = self._integrate_brownian_path(dw, num, ratio)
         x = self.integrate_sde(x, tarray, dw, dt=dt, **kwargs)
