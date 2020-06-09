@@ -483,7 +483,7 @@ class DiffusionProcess:
 
 
     @one_d_method
-    def _instantoneq(self, t, Y):
+    def instantoneq(self, t, Y):
         r"""
         Equations of motion for instanton dynamics.
 
@@ -522,7 +522,7 @@ class DiffusionProcess:
 
 
     @one_d_method
-    def _instantoneq_jac(self, t, Y):
+    def instantoneq_jac(self, t, Y):
         r"""
         Jacobian of the equations of motion for instanton dynamics.
 
