@@ -559,6 +559,13 @@ class DiffusionProcess:
                          [-p*d2bdx2-p**2*(dsigmadx**2+sigma*d2sigmadx2), -dbdx-2*p*sigma*dsigmadx]])
 
 
+    def _fpthsol(self, X, t, **kwargs):
+        """ Analytic solution of the Fokker-Planck equation, when it is known.
+        In general this is an empty method but subclasses corresponding to stochastic processes
+        for which theoretical results exists should override it."""
+        return NotImplemented
+
+
     @classmethod
     def trajectoryplot(cls, *args, **kwargs):
         """

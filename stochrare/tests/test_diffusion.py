@@ -272,6 +272,11 @@ class TestDynamics(unittest.TestCase):
         np.testing.assert_allclose(instantoneq_jac, expected, atol=1e-5)
 
 
+    @unittest.skip("Method not yet implemented")
+    def test_fpthsol(self):
+        raise NotImplementedError
+
+
     def test_euler_maruyama(self):
         # Test DiffusionProcess._euler_maruyama in dimension 3
         x = diffusion.DiffusionProcess._euler_maruyama_multidim(
