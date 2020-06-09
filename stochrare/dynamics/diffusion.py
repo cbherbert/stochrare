@@ -467,6 +467,40 @@ class DiffusionProcess:
             time, obs = zip(*ensemble)
             yield np.average(time, axis=0), np.average(obs, axis=0)
 
+
+    @classmethod
+    def trajectoryplot(cls, *args, **kwargs):
+        """
+        Plot 1D  trajectories.
+
+        Parameters
+        ----------
+        *args : variable length argument list
+        trajs: tuple (t, x)
+
+        Keyword Arguments
+        -----------------
+        fig : matplotlig.figure.Figure
+            Figure object to use for the plot. Create one if not provided.
+        ax : matplotlig.axes.Axes
+            Axes object to use for the plot. Create one if not provided.
+        **kwargs :
+            Other keyword arguments forwarded to matplotlib.pyplot.axes.
+
+        Returns
+        -------
+        fig, ax: matplotlib.figure.Figure, matplotlib.axes.Axes
+            The figure.
+
+        Notes
+        -----
+        This is just an interface to the function :meth:`stochrare.io.plot.trajectory_plot1d`.
+        However, it may be overwritten in subclasses to systematically include elements to
+        the plot which are specific to the stochastic process.
+        """
+        return plot.trajectory_plot1d(*args, **kwargs)
+
+
 class ConstantDiffusionProcess(DiffusionProcess):
     r"""
     Diffusion processes, in arbitrary dimensions, with constant diffusion coefficient.
