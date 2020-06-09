@@ -98,6 +98,7 @@ class DiffusionProcess:
         self._dimension = dimensionnew
 
 
+    @one_d_method
     def potential(self, X, t):
         """
         Compute the potential from which the force derives.
@@ -122,6 +123,7 @@ class DiffusionProcess:
             raise ValueError('Generic dynamics in arbitrary dimensions are not gradient dynamics!')
         fun = interp1d(X, -1*self.drift(X, t), fill_value='extrapolate')
         return np.array([integrate.quad(fun, 0.0, x)[0] for x in X])
+
 
     def update(self, xn, tn, **kwargs):
         r"""
@@ -352,6 +354,7 @@ class DiffusionProcess:
         return x
 
 
+    @one_d_method
     @staticmethod
     def _milstein(x, t, w, dt, drift, diffusion):
         for index, wn in enumerate(w):
@@ -479,6 +482,7 @@ class DiffusionProcess:
             yield np.average(time, axis=0), np.average(obs, axis=0)
 
 
+    @one_d_method
     def _instantoneq(self, t, Y):
         r"""
         Equations of motion for instanton dynamics.
@@ -517,6 +521,7 @@ class DiffusionProcess:
                          -p**2*self.diffusion(x, t)*dsigmadx-p*dbdx])
 
 
+    @one_d_method
     def _instantoneq_jac(self, t, Y):
         r"""
         Jacobian of the equations of motion for instanton dynamics.
@@ -559,6 +564,7 @@ class DiffusionProcess:
                          [-p*d2bdx2-p**2*(dsigmadx**2+sigma*d2sigmadx2), -dbdx-2*p*sigma*dsigmadx]])
 
 
+    @one_d_method
     def _fpthsol(self, X, t, **kwargs):
         """ Analytic solution of the Fokker-Planck equation, when it is known.
         In general this is an empty method but subclasses corresponding to stochastic processes
@@ -566,6 +572,7 @@ class DiffusionProcess:
         return NotImplemented
 
 
+    @one_d_method
     @classmethod
     def trajectoryplot(cls, *args, **kwargs):
         """
