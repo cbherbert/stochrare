@@ -225,6 +225,53 @@ class TestDynamics(unittest.TestCase):
         self.assertTrue(np.mean(Xp) > np.mean(Xm))
 
 
+    def test_instantoneq(self):
+        model = diffusion.DiffusionProcess(lambda x, t: 2*x, lambda x, t: x, 1)
+
+        xvec = np.linspace(-1,1,10)
+        pvec = np.linspace(-1,1,10)
+
+        instantoneq = np.array([model._instantoneq(0, [x,p]) for x,p in zip(xvec, pvec)])
+        # instantoneq =  [[-3.          3.        ]
+        #                 [-2.0260631   2.0260631 ]
+        #                 [-1.28257888  1.28257888]
+        #                 [-0.7037037   0.7037037 ]
+        #                 [-0.22359396  0.22359396]
+        #                 [ 0.22359396 -0.22359396]
+        #                 [ 0.7037037  -0.7037037 ]
+        #                 [ 1.28257888 -1.28257888]
+        #                 [ 2.0260631  -2.0260631 ]
+        #                 [ 3.         -3.        ]]
+
+        expected_xdot = (lambda x,p: x*x*p + 2*x)(xvec,pvec)
+        expected_pdot = (lambda x,p: -x*p*p - 2*p)(xvec,pvec)
+        np.testing.assert_allclose(instantoneq[:,0], expected_xdot)
+        np.testing.assert_allclose(instantoneq[:,1], expected_pdot)
+
+
+    def test_instantoneq_jac(self):
+        model = diffusion.DiffusionProcess(lambda x, t: 2 * x, lambda x, t: x, 1)
+
+        xvec = np.linspace(-1, 1, 10)
+        pvec = np.linspace(-1, 1, 10)
+
+        instantoneq_jac = [model._instantoneq_jac(0, [x, p]) for x, p in zip(xvec, pvec)]
+
+        expected_J11 = lambda x, p: 2 * x * p + 2
+        expected_J12 = lambda x, p: x * x
+        expected_J21 = lambda x, p: -p * p
+        expected_J22 = lambda x, p: -2 * x * p - 2
+
+        expected = [
+            [
+                [expected_J11(x, p), expected_J12(x, p)],
+                [expected_J21(x, p), expected_J22(x, p)],
+            ]
+            for x, p in zip(xvec, pvec)
+        ]
+        np.testing.assert_allclose(instantoneq_jac, expected, atol=1e-5)
+
+
     def test_euler_maruyama(self):
         # Test DiffusionProcess._euler_maruyama in dimension 3
         x = diffusion.DiffusionProcess._euler_maruyama_multidim(
