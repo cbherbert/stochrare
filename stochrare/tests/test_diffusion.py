@@ -2,8 +2,10 @@
 Unit tests for the diffusion module.
 """
 import unittest
+import inspect
 import numpy as np
 import stochrare.dynamics.diffusion as diffusion
+import stochrare.dynamics.diffusion1d as diffusion1d
 from unittest.mock import patch
 from numba import jit
 
@@ -11,7 +13,7 @@ class TestDynamics(unittest.TestCase):
     def setUp(self):
         self.oup = diffusion.OrnsteinUhlenbeck(0, 1, 1, 2, deterministic=True)
         self.wiener = diffusion.Wiener(2, D=0.5, deterministic=True)
-        self.wiener1 = diffusion.Wiener(1, D=0.5, deterministic=True)
+        self.wiener1 = diffusion1d.Wiener1D(D=0.5, deterministic=True)
 
 
         self.diffusions = []
@@ -224,7 +226,25 @@ class TestDynamics(unittest.TestCase):
         Xm = [np.dot(xi,xi) for xi in x[t<0.5]]
         self.assertTrue(np.mean(Xp) > np.mean(Xm))
 
+        
+    def test_empirical_vector(self):
+        model = diffusion.DiffusionProcess(lambda x, t: 2*x, lambda x, t: x, 1)
+        dt_brownian = 0.01
+        nsamples = 1
+        brownian_paths = [
+            self.wiener1.trajectory(1.,0.,T=1, dt=dt_brownian) for sample in range(nsamples)
+        ]
+        for (t, pdf, bins) in model.empirical_vector(1., 0., nsamples, 1.):
+            print(t)
 
+        trajs_exact = [np.exp(1.5*bp[0]+bp[1]) for bp in brownian_paths]
+        
+            
+            
+        
+            
+
+        
     def test_instantoneq(self):
         model = diffusion.DiffusionProcess(lambda x, t: 2*x, lambda x, t: x, 1)
 
