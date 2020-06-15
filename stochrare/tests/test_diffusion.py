@@ -226,25 +226,38 @@ class TestDynamics(unittest.TestCase):
         Xm = [np.dot(xi,xi) for xi in x[t<0.5]]
         self.assertTrue(np.mean(Xp) > np.mean(Xm))
 
-        
+
     def test_empirical_vector(self):
-        model = diffusion.DiffusionProcess(lambda x, t: 2*x, lambda x, t: x, 1)
+        model = diffusion.DiffusionProcess(lambda x, t: 2 * x, lambda x, t: x, 1)
+        x0 = 1.0
+        t0 = 0.0
         dt_brownian = 0.01
+        dt = 0.1
         nsamples = 1
         brownian_paths = [
-            self.wiener1.trajectory(1.,0.,T=1, dt=dt_brownian) for sample in range(nsamples)
+            self.wiener1.trajectory(x0, t0, T=1, dt=dt_brownian)
+            for sample in range(nsamples)
         ]
-        for (t, pdf, bins) in model.empirical_vector(1., 0., nsamples, 1.):
-            print(t)
 
-        trajs_exact = [np.exp(1.5*bp[0]+bp[1]) for bp in brownian_paths]
-        
-            
-            
-        
-            
+        refererence_trajectories = [
+            model.trajectory(x0, t0, T=1, brownian_path=brownian_path, dt=dt)[1]
+            for brownian_path in brownian_paths
+        ]
+        args = [0.3, 0.5, 1.0]
+        empirical_vector_gen = model.empirical_vector(
+            x0, t0, nsamples, *args, brownian_paths=brownian_paths, dt=dt
+        )
+        for i, (t, pdf, bins) in enumerate(empirical_vector_gen):
+            self.assertEqual(t, args[i])
+            index = int(t / dt) + 1
+            expected_obs = [
+                trajectory[index - 1] for trajectory in refererence_trajectories
+            ]
+            expected_pdf, expected_bins = np.histogram(expected_obs, density=True)
+            np.testing.assert_allclose(pdf, expected_pdf)
+            np.testing.assert_allclose(bins, expected_bins)
 
-        
+
     def test_instantoneq(self):
         model = diffusion.DiffusionProcess(lambda x, t: 2*x, lambda x, t: x, 1)
 
