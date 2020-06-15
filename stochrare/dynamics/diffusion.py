@@ -518,15 +518,15 @@ class DiffusionProcess:
         hist_kwargs = {key: kwargs[key] for key in kwargs if key in hist_kwargs_keys}
         def traj_sample(x0, t0, *args, **kwargs):
             if 'brownian_path' in kwargs:
-                tw, w = kwargs.pop('brownian_path', None)
+                tw, w = kwargs.get('brownian_path')
                 dt = kwargs.get('dt', self.default_dt)
                 offset=0
             for i, tsample in enumerate(args):
                 if 'brownian_path' in kwargs:
                     deltat = tw[1]-tw[0]
                     num = int((tsample-t0)/deltat)+1
-                    brownian_path_chunk = brownian_path[offset:num+offset]
-                    offset = num
+                    brownian_path_chunk = (tw[offset:num+offset], w[offset:num+offset])
+                    offset = num + offset - 1
                     kwargs.update({'brownian_path': brownian_path_chunk})
                 t, x = self.trajectory(x0, t0, T=tsample-t0, **kwargs)
                 t0 = t[-1]
