@@ -86,6 +86,17 @@ class DiffusionProcess:
     def diffusion(self, diffusionnew):
         self._diffusion = jit(diffusionnew, nopython=True)
 
+    @property
+    def dimension(self):
+        return self._dimension
+
+    @dimension.setter
+    def dimension(self, dimensionnew):
+        if dimensionnew < 1:
+            raise ValueError("Attribute dimension cannot be lower than 1")
+        self._dimension = dimensionnew
+
+
     def potential(self, X, t):
         """
         Compute the potential from which the force derives.
