@@ -337,14 +337,13 @@ class TestDynamics(unittest.TestCase):
         np.testing.assert_allclose(x, np.array([1, 2.2, 9.04, 21.888]))
 
     def test_milstein(self):
-        x0=1.
-        x = diffusion.DiffusionProcess._milstein(
+        model = diffusion.DiffusionProcess(lambda x, t: 2*x, lambda x, t: x + t, 1)
+        x0 = 1.
+        x = model._milstein(
             np.full((4,), x0),
             np.array(range(3)),
             np.array([1.,2.,1.]),
             0.1,
-            lambda x, t: 2*x,
-            lambda x, t: x + t,
             )
         np.testing.assert_allclose(x, [1., 2.65, 17.5975, 49.53337501])
 
