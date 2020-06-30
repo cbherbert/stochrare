@@ -258,13 +258,13 @@ class TestDynamics(unittest.TestCase):
             np.testing.assert_allclose(bins, expected_bins)
 
 
-    def test_instantoneq(self):
+    def testinstantoneq(self):
         model = diffusion.DiffusionProcess(lambda x, t: 2*x, lambda x, t: x, 1)
 
         xvec = np.linspace(-1,1,10)
         pvec = np.linspace(-1,1,10)
 
-        instantoneq = np.array([model._instantoneq(0, [x,p]) for x,p in zip(xvec, pvec)])
+        instantoneq = np.array([model.instantoneq(0, [x,p]) for x,p in zip(xvec, pvec)])
         # instantoneq =  [[-3.          3.        ]
         #                 [-2.0260631   2.0260631 ]
         #                 [-1.28257888  1.28257888]
@@ -282,13 +282,13 @@ class TestDynamics(unittest.TestCase):
         np.testing.assert_allclose(instantoneq[:,1], expected_pdot)
 
 
-    def test_instantoneq_jac(self):
+    def testinstantoneq_jac(self):
         model = diffusion.DiffusionProcess(lambda x, t: 2 * x, lambda x, t: x, 1)
 
         xvec = np.linspace(-1, 1, 10)
         pvec = np.linspace(-1, 1, 10)
 
-        instantoneq_jac = [model._instantoneq_jac(0, [x, p]) for x, p in zip(xvec, pvec)]
+        instantoneq_jac = [model.instantoneq_jac(0, [x, p]) for x, p in zip(xvec, pvec)]
 
         expected_J11 = lambda x, p: 2 * x * p + 2
         expected_J12 = lambda x, p: x * x
