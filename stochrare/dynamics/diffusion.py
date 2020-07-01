@@ -443,6 +443,7 @@ class DiffusionProcess:
                 break
         return t, x
 
+
     def sample_mean(self, x0, t0, nsteps, nsamples, **kwargs):
         r"""
         Compute the sample mean of a time dependent observable, conditioned on initial conditions.
