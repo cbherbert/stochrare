@@ -9,6 +9,8 @@ but should be used by various other modules in the package.
 This includes decorators, but is not restricted to it.
 
 .. autofunction:: pseudorand
+
+.. autofunction:: method1d
 """
 import functools
 import numpy as np
@@ -36,7 +38,7 @@ def pseudorand(fun):
     return wrapper
 
 
-def one_d_method(fun):
+def method1d(fun):
     """
     Decorator for methods of class DiffusionProcess.
     If the object's `dimension` attribute is set to a value strictly

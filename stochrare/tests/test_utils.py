@@ -3,7 +3,7 @@ Unit tests for the utils package.
 """
 import unittest
 import numpy as np
-from stochrare.utils import pseudorand, one_d_method
+from stochrare.utils import pseudorand, method1d
 
 
 class TestUtils(unittest.TestCase):
@@ -22,12 +22,12 @@ class TestUtils(unittest.TestCase):
         )
         np.testing.assert_allclose(np.random.random(5), results, atol=1e-8)
 
-    def test_one_d_method(self):
+    def test_method1d(self):
         class mock_class:
             def __init__(self, dimension):
                 self.dimension = dimension
 
-            @one_d_method
+            @method1d
             def method(self):
                 return False
 
