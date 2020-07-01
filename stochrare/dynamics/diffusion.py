@@ -34,7 +34,7 @@ import scipy.integrate as integrate
 from scipy.interpolate import interp1d
 from scipy.misc import derivative
 from numba import jit
-from ..utils import pseudorand, one_d_method
+from ..utils import pseudorand, method1d
 
 class DiffusionProcess:
     r"""
@@ -98,7 +98,7 @@ class DiffusionProcess:
         self._dimension = dimensionnew
 
 
-    @one_d_method
+    @method1d
     def potential(self, X, t):
         """
         Compute the potential from which the force derives.
@@ -354,7 +354,7 @@ class DiffusionProcess:
         return x
 
 
-    @one_d_method
+    @method1d
     def _milstein(self, x, t, w, dt):
         for index, wn in enumerate(w):
             xn = x[index]
@@ -546,7 +546,7 @@ class DiffusionProcess:
             yield (time[0], ) + np.histogram(obs, density=True, **hist_kwargs)
 
 
-    @one_d_method
+    @method1d
     def instantoneq(self, t, Y):
         r"""
         Equations of motion for instanton dynamics.
@@ -585,7 +585,7 @@ class DiffusionProcess:
                          -p**2*self.diffusion(x, t)*dsigmadx-p*dbdx])
 
 
-    @one_d_method
+    @method1d
     def instantoneq_jac(self, t, Y):
         r"""
         Jacobian of the equations of motion for instanton dynamics.
@@ -628,7 +628,7 @@ class DiffusionProcess:
                          [-p*d2bdx2-p**2*(dsigmadx**2+sigma*d2sigmadx2), -dbdx-2*p*sigma*dsigmadx]])
 
 
-    @one_d_method
+    @method1d
     def _fpthsol(self, X, t, **kwargs):
         """ Analytic solution of the Fokker-Planck equation, when it is known.
         In general this is an empty method but subclasses corresponding to stochastic processes
@@ -636,7 +636,7 @@ class DiffusionProcess:
         return NotImplemented
 
 
-    @one_d_method
+    @method1d
     @classmethod
     def trajectoryplot(cls, *args, **kwargs):
         """
