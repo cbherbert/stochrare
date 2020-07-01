@@ -481,7 +481,7 @@ class DiffusionProcess:
             yield np.average(time, axis=0), np.average(obs, axis=0)
 
 
-    @one_d_method
+    @method1d
     def empirical_vector(self, x0, t0, nsamples, *args, **kwargs):
         r"""
         Empirical vector at given times.
